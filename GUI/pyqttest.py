@@ -1,5 +1,4 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QPushButton, QTextEdit, QLineEdit, QLayout
 from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor, QPalette, QImage
 from PyQt5.QtCore import Qt, QProcess
 from PIL import Image
@@ -7,6 +6,12 @@ from rdkit import rdBase
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw, rdDepictor
+from PyQt5.QtWidgets import ( 
+    QApplication, QMainWindow, 
+    QLabel, QWidget, QPushButton, QTextEdit, QLineEdit,
+    QVBoxLayout, QHBoxLayout,
+    QSizePolicy
+)
 #import py3Dmol
 
 ColorA = '#2E6082' # Darkest
@@ -19,7 +24,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("VWCP")
         self.setGeometry(0, 0, 1600, 900)
-        self.setWindowIcon(QIcon("VWCPLogo.png"))
+        self.setWindowIcon(QIcon('GUI/VWCPLogo.png'))
 
         # Title Box
         MasterLayout = QVBoxLayout()
@@ -77,12 +82,14 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
         palette.setColor(QPalette.Window, QColor(ColorB))
         self.setPalette(palette)
 
+        # SMILES string input box
         self.text_input = QLineEdit()
         self.text_input.setFont(QFont("Baskerville Old Face", 15))
         self.text_input.setFixedHeight(40)
         self.text_input.setFixedWidth(600)
         self.text_input.setAlignment(Qt.AlignCenter)
 
+        #Generate image button
         self.button = QPushButton("Generate", self)
         # self.button.setFixedSize(150, 40)
         self.button.setFont(QFont("Baskerville Old Face", 20))
@@ -98,29 +105,33 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
         text_input_layout.addWidget(self.button)
         text_input_layout.setAlignment(Qt.AlignHCenter)
 
+        # Image display label
         self.label = QLabel()
-        # O=C(O)C(O)C(O)C(=O)O
         layout = QVBoxLayout()
         layout.addLayout(text_input_layout)
         layout.addWidget(self.label)
         layout.setAlignment(self.label, Qt.AlignCenter)
         self.setLayout(layout)
 
-    def generate_button(self):
+    def generate_button(self): # Function runs when generate button is pressed
+        # Takes text input, passes into rdkit, generates image based on SMILES
         smi = self.text_input.text()
         mol = Chem.MolFromSmiles(smi)
         mol = Chem.AddHs(mol)
         PILimage = Draw.MolToImage(mol, size=(300,300))
         MolBlock = Chem.MolToMolBlock(mol)
-        
         image = QImage(PILimage.tobytes("raw", "RGB"), PILimage.width, PILimage.height, QImage.Format_RGB888)
-        if image.save("data/MolImage.png"):
+
+        #Saves image and SMILES to data/files
+        if image.save("GUI/data/MolImage.png"):
             print("Image saved successfully")
         else: 
             print("Image failed to save")
-        
-        with open("data/SMILES.txt", "w") as file:
+
+        with open("GUI/data/SMILES.txt", "w") as file:
             file.write(smi)
+        
+        #Applies the generated image to display label
         qpixmap = QPixmap.fromImage(image)
         qpixmap = qpixmap.scaled(500,500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.label.setPixmap(qpixmap)
@@ -142,6 +153,7 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         palette.setColor(QPalette.Window, QColor(ColorB))
         self.setPalette(palette)
 
+        # Run button
         self.button = QPushButton("Run", self)
         self.button.setFixedSize(150, 40)
         self.button.setFont(QFont("Baskerville Old Face", 20))
@@ -150,6 +162,7 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
                              "font-weight: bold;")
         self.button.clicked.connect(self.run_button)
 
+        # Output text box, displays stdout of ran file
         self.output_text = QTextEdit(self)
         self.output_text.setReadOnly(True)
         self.output_text.setSizePolicy(
@@ -166,6 +179,7 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         self.setLayout(layout)
     
     def run_button(self):
+        #Runs specified file stdout is sent to handle_output
         self.output_text.clear()
 
         self.process = QProcess(self)
@@ -173,11 +187,11 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         self.process.finished.connect(self.script_finished)
         self.process.start("python", ["testoutput.py"])
 
-    def handle_output(self):
+    def handle_output(self): # Takes ran file stdout and appends it to display box
         output = self.process.readAllStandardOutput().data().decode('utf-8')
         self.output_text.append(output)
 
-    def script_finished(self):
+    def script_finished(self): # Placeholder in case I want after completion code to run
         pass
 
 
