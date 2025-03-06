@@ -185,7 +185,7 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         self.process = QProcess(self)
         self.process.readyReadStandardOutput.connect(self.handle_output)
         self.process.finished.connect(self.script_finished)
-        self.process.start("python", ["testoutput.py"])
+        self.process.start("python", ["GUI/testoutput.py"])
 
     def handle_output(self): # Takes ran file stdout and appends it to display box
         output = self.process.readAllStandardOutput().data().decode('utf-8')
