@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import (
     QLabel, QWidget, QPushButton, QTextEdit, QLineEdit,
     QVBoxLayout, QHBoxLayout,
     QSizePolicy, QListWidget, QListWidgetItem,
-    QFrame
+    QFrame, QComboBox
 )
+import json
 #import py3Dmol
 
 ColorA = '#2E6082' # Darkest
@@ -38,8 +39,8 @@ class MainWindow(QMainWindow):
 
         # Right Side
         SideLayout = QVBoxLayout()
-        self.settings = Settings()
-        self.output = Output(self.settings.encoder_selector, self.settings.decoder_selector)
+        self.output = Output()
+        self.settings = Settings(self.output)
         SideLayout.addLayout(HeaderWidgetLayout( self.settings, "Control"))
         SideLayout.addLayout(HeaderWidgetLayout( self.output, "Output"))
 
@@ -144,25 +145,13 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
 
 
 class Settings(QWidget): # Model selection for debugging purposes
-    def __init__(self):
+    def __init__(self, outputReference):
         super().__init__()
+
         self.setAutoFillBackground(True)
         palette = QPalette()
         palette.setColor(QPalette.Window, QColor(ColorB))
         self.setPalette(palette)
-
-        self.encoder_selector = Model_Selector(True)
-        self.decoder_selector = Model_Selector(False)
-
-        layout = QVBoxLayout()
-        layout.addLayout(HeaderWidgetLayout(self.encoder_selector, 'Encoder Selector'))
-        layout.addLayout(HeaderWidgetLayout(self.decoder_selector, 'Decoder Selector'))
-
-        self.setLayout(layout)
-
-class Model_Selector(QWidget):
-    def __init__(self, is_encoder):
-        super().__init__()
 
         self.encoder_list = {
             'CNN1': {
@@ -182,6 +171,11 @@ class Model_Selector(QWidget):
             },
         }
         self.decoder_list = {
+            'None': {
+                    'desc': 'No decoder',
+                    'path': '',
+                    'img_path': 'mvp/imgs/pkan.png'
+            },
             'PKAN1': {
                     'desc': 'Model description, whatever whatever blah blah',
                     'path': 'mvp/models/pkan_model.pth',
@@ -199,121 +193,87 @@ class Model_Selector(QWidget):
             },
         }
 
-        self.model_list = self.encoder_list if is_encoder else self.decoder_list
-        self.selected_item = None
-        self.selected_model_path = None
+        self.encoder_select = QComboBox()
+        self.encoder_select.addItems(self.encoder_list.keys())
+        self.decoder_select = QComboBox()
+        self.decoder_select.addItems(self.decoder_list.keys())
+
+
+        self.encoder_display = Display_Model(True, self.encoder_select, self.encoder_list, outputReference)
+        self.decoder_display = Display_Model(False, self.decoder_select, self.decoder_list, outputReference)
+
+        encoder_label = QLabel("Encoder:")
+        encoder_label.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {ColorA}; padding: 5px;")
+        encoder_label.setAlignment(Qt.AlignLeft)
+        encoder_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
+        decoder_label = QLabel("Decoder:")
+        decoder_label.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {ColorA}; padding: 5px;")
+        decoder_label.setAlignment(Qt.AlignLeft)
+        decoder_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
+        layout = QVBoxLayout()
+        layout.addWidget(encoder_label)
+        layout.addWidget(self.encoder_display)
+        layout.addWidget(decoder_label)
+        layout.addWidget(self.decoder_display)
+
+        self.setLayout(layout)
+        
+
+class Display_Model(QWidget):
+    def __init__(self, isEncoder, comboBox, ModelList, outputReference):
+        super().__init__()
 
         self.setAutoFillBackground(True)
         palette = QPalette()
         palette.setColor(QPalette.Window, QColor(ColorC))
         self.setPalette(palette)
 
-        self.model_list_widget = QListWidget()
-        self.model_list_widget.setStyleSheet(f'background-color: {ColorA};')
+        self.isEncoder = isEncoder
+        self.comboBox = comboBox
+        self.modelList = ModelList
+        self.outputReference = outputReference
+        comboBox.currentIndexChanged.connect(self.updateDisplay)
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.model_list_widget)
+        self.img   = QLabel()
+        self.desc  = QLabel()
+        self.desc.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.desc.setWordWrap(True)
+
+        self.updateDisplay()
+
+        layout = QHBoxLayout()
+        layout.addWidget(self.img)
+        layout.addWidget(self.desc)
+        layout.addWidget(self.comboBox)
         self.setLayout(layout)
 
-        self.list_models()
+    def updateDisplay(self):
+        selectedModel = self.comboBox.currentText()
+        desc = self.modelList[selectedModel]['desc']
+        path = self.modelList[selectedModel]['path']
+        self.outputReference.update_path(self.isEncoder, path)
+        img_path = self.modelList[selectedModel]['img_path']
 
-    def list_models(self):
-
-        for model_name, model_info in self.model_list.items():
-
-            item = QListWidgetItem(self.model_list_widget)
-            model_item = Model_Item(model_name, model_info['desc'], model_info['path'], model_info['img_path'], self)
-
-            item.setSizeHint(model_item.sizeHint())
-            item.setFlags(item.flags() & ~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
-            self.model_list_widget.addItem(item)
-            self.model_list_widget.setItemWidget(item, model_item)
-
-    def update_selection(self, selected_item, model_path, checked):
-        if checked:
-            if self.selected_item and self.selected_item is not selected_item:
-                self.selected_item.check_button.setChecked(False)
-            self.selected_item = selected_item
-            self.selected_model_path = model_path
-        else:
-            if self.selected_item is selected_item:
-                self.selected_item = None
-                self.selected_model_path = None
-
-    def get_selected_model_path(self):
-        return self.selected_model_path
-
-class Model_Item(QWidget):
-    def __init__(self, name, desc, model_path, img_path, parent):
-        self.parent = parent
-        self.model_path = model_path
-        self.img_path = img_path
-        super().__init__()
-        self.setStyleSheet(f"background-color: {ColorC};")
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(0)
-
-        # === Header (Model Name) ===
-        header = QLabel(name)
-        header.setStyleSheet(f"font-weight: bold; font-size: 18px; color: white; padding: 5px;")
-        header.setAlignment(Qt.AlignLeft)
-
-        # === Divider Line ===
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setFrameShadow(QFrame.Sunken)
-
-        # === Image and Description Section ===
-        content_layout = QHBoxLayout()
-
-        # Placeholder Image
-        self.image_label = QLabel("img")
-        self.image_label.setFixedSize(160, 120)
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setPixmap(QPixmap(img_path).scaled(160, 120, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
-
-        # Description
-        self.desc_label = QLabel(f"{desc}")
-        self.desc_label.setStyleSheet("font-size: 12px; color: white; padding: 5px;")
-
-        button_widget = QWidget()
-        button_layout = QVBoxLayout()
-        button_widget.setStyleSheet(f"background-color:{ColorC};")
-        
-        self.check_button = QPushButton('')
-        self.check_button.setCheckable(True)
-        self.check_button.setStyleSheet(f"background-color:{ColorA};")
-        self.check_button.clicked.connect(self.toggle_selection)
-        
-        button_layout.addWidget(self.check_button)
-        button_widget.setLayout(button_layout)
-
-        content_layout.addWidget(self.image_label, 1)
-        content_layout.addWidget(self.desc_label, 3)
-        content_layout.addWidget(button_widget)
-
-        # === Add Everything to Main Layout ===
-        main_layout.addWidget(header, 1)
-        main_layout.addWidget(divider, 1)
-        main_layout.addLayout(content_layout, 3)
-
-        self.setLayout(main_layout)
-
-    def toggle_selection(self, checked):
-        self.parent.update_selection(self, self.model_path, checked)
+        self.img.setFixedSize(160,120)
+        self.img.setPixmap(QPixmap(img_path).scaled(160, 120, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
+        self.desc.setText(desc)
 
 class Output(QWidget): # Takes the output from MoleculeInput and passes to model scripts
-    def __init__(self, encoder_selector, decoder_selector):
+    def __init__(self):
         super().__init__()
 
-        self.encoder_selector = encoder_selector
-        self.decoder_selector = decoder_selector
+        # self.encoder_selector = encoder_selector
+        # self.decoder_selector = decoder_selector
 
         self.setAutoFillBackground(True)
         palette = QPalette()
         palette.setColor(QPalette.Window, QColor(ColorB))
         self.setPalette(palette)
+
+        self.encoder_path = ""
+        self.decoder_path = ""
 
         # Run button
         self.button = QPushButton("Run", self)
@@ -339,18 +299,24 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         layout.addWidget(self.button)
         layout.setAlignment(self.button, Qt.AlignHCenter)
         self.setLayout(layout)
+
+    def update_path(self, isEncoder, path):
+        if (isEncoder): 
+            self.encoder_path = path
+            print(path)
+        else:
+            self.decoder_path = path
+            print(path)
+
     
     def run_button(self):
         #Runs specified file stdout is sent to handle_output
         self.output_text.clear()
 
-        encoder_path = self.encoder_selector.get_selected_model_path()
-        decoder_path = self.decoder_selector.get_selected_model_path()
-
         self.process = QProcess(self)
         self.process.readyReadStandardOutput.connect(self.handle_output)
         self.process.finished.connect(self.script_finished)
-        self.process.start("python", ["-u", "mvp/predict.py", 'mvp/data/MolImage.png', encoder_path, decoder_path])
+        self.process.start("python", ["-u", "mvp/predict.py", 'mvp/data/MolImage.png', self.encoder_path, self.decoder_path])
 
     def handle_output(self): # Takes ran file stdout and appends it to display box
         output = self.process.readAllStandardOutput().data().decode('utf-8')
