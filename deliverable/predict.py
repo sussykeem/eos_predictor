@@ -21,9 +21,9 @@ class MolPredictor():
         self.encoder = self.load_encoder(path=encoder_path)
         sys.stdout.write('Encoder loaded\n')
 
-        if 'pth' in decoder_path:
+        if 'yaml' in decoder_path:
             sys.stdout.write('Loading pkan\n')
-            self.pkan = self.load_decoder(path=decoder_path)
+            self.decoder = self.load_decoder(path=decoder_path)
             sys.stdout.write('pkan loaded\n')
             self.e_pred = False
         else:
@@ -37,9 +37,9 @@ class MolPredictor():
             model_path = path[1]
 
             model = Model(model_path)
-            model.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True), strict=False)
-            model.to(device)
-            model.train()
+            model.network.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True), strict=False)
+            model.network.to(device)
+            model.network.eval()
         except Exception as e:
             print(f'Failed {e}')
         return model
@@ -47,13 +47,10 @@ class MolPredictor():
     def load_decoder(self, path):
         try:
 
-            weight_path = path[0]
-            model_path = path[1]
-
-            model = Model(model_path)
-            model.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True))
-            model.to(device)
-            model.eval()
+            model = Model(path, encoder=self.encoder.network)
+            #model.network.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True))
+            model.network.to(device)
+            model.network.eval()
         except Exception as e:
             print(f"Failed {e}")
         return model
@@ -69,10 +66,11 @@ class MolPredictor():
                 image_tensor = transform(image).unsqueeze(0).to(device)
                 a_preds = []
                 b_preds = []
+                self.encoder.network.train()
                 for i in range(1000): # num MC prediction
-                    preds = self.encoder(image_tensor, predict=self.e_pred)
+                    preds = self.encoder.network(image_tensor, predict=self.e_pred, show=True)
                     if not self.e_pred:
-                        preds = self.pkan(preds)
+                        preds = self.decoder.network(preds)
                     preds_unscaled = self.train.inverse_transform(preds.cpu())
                     a_preds.append(preds_unscaled[0][0])
                     b_preds.append(preds_unscaled[0][1])
@@ -132,10 +130,13 @@ def main(x, e_path, d_path):
 
 
 if __name__ == "__main__":
+    print('run')
     parser = argparse.ArgumentParser()
     parser.add_argument('file_path', type=str)
-    parser.add_argument('encoder_path', type=str)
+    parser.add_argument('encoder_m_path', type=str)
+    parser.add_argument('encoder_w_path', type=str)
     parser.add_argument('decoder_path', type=str)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     argv = parser.parse_args()
-    main(argv.file_path, argv.encoder_path, argv.decoder_path)
+    encoder_path = (argv.encoder_w_path, argv.encoder_m_path)
+    main(argv.file_path, encoder_path, argv.decoder_path)

@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
+import copy
 import matplotlib.pyplot as plt
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class CNN(nn.Module):
     def __init__(self, config, dataloader):
@@ -41,25 +45,20 @@ class CNN(nn.Module):
             dummy_input = torch.zeros((1, 3, self.input_dim, self.input_dim), dtype=torch.float32)
             dummy_output = self.cnn_pipeline(dummy_input)
             flatten_size = dummy_output.view(1, -1).shape[1]
+            print(flatten_size)
 
         # Build the fully connected pipeline
         self.fc_pipeline = nn.Sequential()
         for i, fc_config in enumerate(self.config['fc_layers']):
-            self.fc_pipeline.add_module(f'fc{i+1}', nn.Linear(flatten_size if i == 0 else fc_config['units'], fc_config['units']))
+            self.fc_pipeline.add_module(f'fc{i+1}', nn.Linear(flatten_size if i == 0 else prev_units, fc_config['units']))
             self.fc_pipeline.add_module(f'activation_fc{i+1}', nn.ReLU())
             if 'dropout' in fc_config:
                 self.fc_pipeline.add_module(f'dropout_fc{i+1}', nn.Dropout(fc_config['dropout']))
+            prev_units = fc_config['units']
+
+        self.output_layer = nn.Linear(prev_units, 2)
 
         self._initialize_weights()
-
-    def forward(self, x):
-        # Forward pass through CNN pipeline
-        x = self.cnn_pipeline(x)
-        x = x.view(x.size(0), -1)  # Flatten the output
-        
-        # Forward pass through fully connected layers
-        x = self.fc_pipeline(x)
-        return x
     
     def _initialize_weights(self):
         for m in self.modules():

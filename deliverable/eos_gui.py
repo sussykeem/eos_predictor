@@ -182,19 +182,16 @@ class Settings(QWidget): # Model selection for debugging purposes
             },
             'PKAN1': {
                     'desc': 'Model description, whatever whatever blah blah',
-                    'weight_path': 'models/pkan_model.pth',
                     'model_path': 'model_config/base_pkan.yaml',
                     'img_path': 'imgs/pkan.png'
             },
             'PKAN2': {
                     'desc': 'Model description, whatever whatever blah blah',
-                    'weight_path': 'models/pkan_model.pth',
                     'model_path': 'model_config/base_pkan.yaml',
                     'img_path': 'imgs/pkan.png'
             },
             'PKAN3': {
                     'desc': 'Model description, whatever whatever blah blah',
-                    'weight_path': 'models/pkan_model.pth',
                     'model_path': 'model_config/base_pkan.yaml',
                     'img_path': 'imgs/pkan.png'
             },
@@ -259,8 +256,11 @@ class Display_Model(QWidget):
     def updateDisplay(self):
         selectedModel = self.comboBox.currentText()
         desc = self.modelList[selectedModel]['desc']
-        path = (self.modelList[selectedModel]['weight_path'], self.modelList[selectedModel]['model_path'])
-        self.outputReference.update_path(self.isEncoder, path)
+        model_path = self.modelList[selectedModel]['model_path']
+        weight_path = ''
+        if 'weight_path' in self.modelList[selectedModel]:
+            weight_path = self.modelList[selectedModel]['weight_path']
+        self.outputReference.update_path(self.isEncoder, model_path, weight_path)
         img_path = self.modelList[selectedModel]['img_path']
 
         self.img.setFixedSize(160,120)
@@ -307,13 +307,12 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         layout.setAlignment(self.button, Qt.AlignHCenter)
         self.setLayout(layout)
 
-    def update_path(self, isEncoder, path):
+    def update_path(self, isEncoder, model_path, weight_path):
         if (isEncoder): 
-            self.encoder_path = path
-            print(path)
+            self.encoder_m_path = model_path
+            self.encoder_w_path = weight_path
         else:
-            self.decoder_path = path
-            print(path)
+            self.decoder_path = model_path
 
     
     def run_button(self):
@@ -323,7 +322,7 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         self.process = QProcess(self)
         self.process.readyReadStandardOutput.connect(self.handle_output)
         self.process.finished.connect(self.script_finished)
-        self.process.start("python", ["-u", "/predict.py", 'data/MolImage.png', self.encoder_path, self.decoder_path])
+        self.process.start("python", ["-u", "predict.py", 'data/MolImage.png', self.encoder_m_path, self.encoder_w_path, self.decoder_path])
 
     def handle_output(self): # Takes ran file stdout and appends it to display box
         output = self.process.readAllStandardOutput().data().decode('utf-8')

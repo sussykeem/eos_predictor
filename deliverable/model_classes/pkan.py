@@ -2,22 +2,23 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 import matplotlib.pyplot as plt
 import copy
 from rdkit import Chem
 from rdkit.Chem import Descriptors
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class PKAN_Data(Dataset):
 
-    def __init__(self, data_loader, train=True):
+    def __init__(self, data_loader, encoder, train=True):
         self.data_loader = data_loader
         self.smiles = data_loader.train_smiles if train else data_loader.test_smiles
-        self.encoder = self.load_encoder()
+        self.encoder = encoder
         data = self.generate_encoding_set(train)
-        del self.encoder # free up GPU resources
+        # del self.encoder # free up GPU resources
         self.X = [copy.copy(x) for x in data['X']]
         self.y = [copy.copy(y) for y in data['y']]
 
@@ -35,16 +36,7 @@ class PKAN_Data(Dataset):
             else:
                 print(f"Invalid SMILES: {smi}")  # Debugging output
                 mol_weights.append(0.0)  # Assign a default valid value (e.g., 0)
-        return torch.tensor(mol_weights, dtype=torch.float32, device=device)
-
-    
-    def load_encoder(self, path='cnn_model.pth', input_dim=300):
-        model = CNN(self.data_loader, input_dim)
-        # strict=False allows us to use the model with the last layer dropped
-        model.load_state_dict(torch.load(path, map_location=device, weights_only=True), strict=False)
-        model.to(device)
-        model.eval()
-        return model
+        return torch.tensor(mol_weights, dtype=torch.float32, device=device)    
 
     def generate_encoding_set(self, train=True):
         data = {'X': [], 'y': []}
@@ -91,13 +83,15 @@ class KANLayer(nn.Module):
 
 # PKAN class
 class PKAN(nn.Module):
-    def __init__(self, config, dataloader):
+    def __init__(self, config, dataloader, encoder):
         super(PKAN, self).__init__()
 
         self.config = config
 
-        self.pkan_train_data = PKAN_Data(dataloader)
-        self.pkan_test_data = PKAN_Data(dataloader, False)
+        train_data = PKAN_Data(dataloader, encoder)
+        test_data = PKAN_Data(dataloader, encoder, False)
+        self.train_loader = DataLoader(train_data, batch_size=128, shuffle=True)
+        self.test_loader = DataLoader(test_data, batch_size=128, shuffle=True)
 
         self.activations = {
             'ReLU': nn.ReLU(),
@@ -134,6 +128,8 @@ class PKAN(nn.Module):
         self.fc_pipeline.add_module("output", nn.Linear(prev_units, 2))  # Assuming binary classification (2 output classes)
 
         self._initialize_weights()
+
+        self.train_pkan()
 
     def _initialize_weights(self):
         for m in self.modules():
