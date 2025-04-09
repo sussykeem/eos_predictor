@@ -4,12 +4,10 @@ import torch.optim as optim
 import copy
 import matplotlib.pyplot as plt
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 class CNN(nn.Module):
     def __init__(self, config, dataloader):
         super(CNN, self).__init__()
-
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # set device
         self.dataloader = dataloader
 
         self.config = config
