@@ -3,3 +3,5 @@ GUI/data/SMILES.txt
 /mvp/data
 deliverable/models
 deliverable/data
+deliverable/__pycache__/*
+deliverable/model_classes/__pycache__/*
