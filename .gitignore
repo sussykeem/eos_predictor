@@ -3,3 +3,4 @@ GUI/data/SMILES.txt
 /mvp/data
 deliverable/models
 deliverable/data
+unet/cnn.py
