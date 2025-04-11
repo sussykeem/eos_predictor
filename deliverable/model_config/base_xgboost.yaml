@@ -1,0 +1,29 @@
+# Base config for XGBoost (regression)
+
+model:
+  type: XGBoost
+  input_dim: 64
+  task: regression
+  output_dim: 2  # if you're predicting both a and b at once
+
+xgboost_params:
+  learning_rate: 0.1
+  max_depth: 6
+  n_estimators: 100
+  subsample: 1.0
+  colsample_bytree: 1.0
+  objective: reg:squarederror
+  eval_metric: rmse
+
+training:
+  batch_size: 128  # not typically used by XGBoost, optional
+  epochs: 1        # XGBoost uses n_estimators, so this is a dummy
+
+data:
+  train_data: path/to/train_data
+  test_data: path/to/test_data
+  validation_data: path/to/validation_data
+
+loss_function: MSE
+seed: 42
+gpu: true

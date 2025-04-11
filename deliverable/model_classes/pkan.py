@@ -95,6 +95,7 @@ class PKAN(nn.Module):
 
         self.activations = {
             'ReLU': nn.ReLU(),
+            "Sigmoid": nn.Sigmoid(),
         }
         
         # Fully connected layers (including KAN layer)

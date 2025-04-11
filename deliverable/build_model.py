@@ -1,6 +1,6 @@
 import yaml
-from model_classes.cnn import CNN
 from model_classes.pkan import PKAN
+from model_classes.cnn import CNN
 from eos_dataloader import EOS_Dataloader, EOS_Dataset
 import torch
 
