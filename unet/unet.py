@@ -105,11 +105,8 @@ class UNet(nn.Module):
         return masked_x, mask
 
     def forward(self, x, enc=False):
-        # Mask the input
-        masked_x, self.mask = self.mask_input(x)
-        
         # Encoder path (down-sampling)
-        enc1 = self.encoder1(masked_x)
+        enc1 = self.encoder1(x)
         enc2 = self.encoder2(enc1)
         enc3 = self.encoder3(enc2)
         enc4 = self.encoder4(enc3)
@@ -140,8 +137,8 @@ class UNet(nn.Module):
         
         # Final output layer
         up0  = self.upscale0(dec1)
-        up0  = self.crop(masked_x, up0)
-        up0  = torch.cat([up0, masked_x], dim=1)
+        up0  = self.crop(x, up0)
+        up0  = torch.cat([up0, x], dim=1)
         output = self.final_conv(up0)
         
         if enc:
@@ -149,10 +146,10 @@ class UNet(nn.Module):
 
         return output
     
-    def compute_loss(self, output, target):
+    def compute_loss(self, output, target, mask):
         """Compute the loss only on the masked patches"""
-        masked_output = output * self.mask.float()
-        masked_target = target * self.mask.float()
+        masked_output = output * mask.float()
+        masked_target = target * mask.float()
         
         # Calculate Mean Squared Error loss only on the masked patches
         loss = F.mse_loss(masked_output, masked_target, reduction='mean')
@@ -197,12 +194,14 @@ class UNet(nn.Module):
             running_val_acc = 0.0
 
             for data in self.dataloader.train_loader:
-                inputs, labels = data
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                input, labels = data
+                # Mask the input
+                masked_input, mask = self.mask_input(input)
+                masked_input, labels = masked_input.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
-                outputs = self(inputs)
-                loss = self.compute_loss(outputs, labels)
+                outputs = self(masked_input)
+                loss = self.compute_loss(outputs, labels, mask)
                 loss.backward()
                 optimizer.step()
 
@@ -275,10 +274,11 @@ class UNet(nn.Module):
             num_batches = len(self.dataloader.test_loader)
 
             for imgs, labels in self.dataloader.test_loader:
-                imgs, labels = imgs.to(self.device), labels.to(self.device)
+                masked_imgs, mask = self.mask_input(imgs)
+                masked_imgs, labels = masked_imgs.to(self.device), labels.to(self.device)
 
                 outputs = self(imgs)
-                loss = self.compute_loss(outputs, labels)
+                loss = self.compute_loss(outputs, labels, mask)
                 acc = np.sqrt(loss.item())
 
                 total_loss += loss.item()
@@ -299,37 +299,68 @@ unet = UNet(data, patch_size=16, mask_ratio=0.25)
 x = x.to(unet.device)
 x_t = x_t.to(unet.device)
 
-print(x.shape, x_t.shape)
-
 loss_history, val_history, train_acc_history, val_acc_history = unet.train_unet()
 
 x_recon = unet(x).detach().cpu().numpy()[0]
 x_t_recon = unet(x_t).detach().cpu().numpy()[0]
 
-print(type(x_recon), x_recon.shape)
+x_i = x.detach().cpu().numpy()[0]
+x_t_i = x_t.detach().cpu().numpy()[0]
 
-x = x[0].transpose(1,2,0)
-x_t = x_t[0].transpose(1,2,0)
-x_recon = x_recon.transpose(1,2,0)
-x_t_recon = x_t_recon.transpose(1,2,0)
+x_i = np.transpose(x_i, (1,2,0))
+x_t_i = np.transpose(x_t_i, (1,2,0))
+x_recon = np.transpose(x_recon, (1,2,0))
+x_t_recon = np.transpose(x_t_recon, (1,2,0))
+
+def normalize_array(arr):
+    """Normalize a NumPy array to the [0, 1] range."""
+    min_val = np.min(arr)
+    max_val = np.max(arr)
+    if (max_val - min_val) > 0:
+        return (arr - min_val) / (max_val - min_val)
+    else:
+        return np.zeros_like(arr)
+
+
+x_i = normalize_array(x_i)
+x_t_i = normalize_array(x_t_i)
+x_recon = normalize_array(x_recon)
+x_t_recon = normalize_array(x_t_recon)
 
 fig, ax = plt.subplots(nrows=2, ncols=2)
 
 
 
-ax[0][0].imshow(x)
+ax[0][0].imshow(x_i)
 ax[0][0].set_title("Original Image - Train")
 ax[0][0].axis("off")
 ax[0][1].imshow(x_recon)
 ax[0][1].set_title("Reconstructed Image")
 ax[0][1].axis("off")
 
-ax[1][0].imshow(x_t)
+ax[1][0].imshow(x_t_i)
 ax[1][0].set_title("Original Image - Test")
 ax[1][0].axis("off")
 ax[1][1].imshow(x_t_recon)
 ax[1][1].set_title("Reconstructed Image")
 ax[1][1].axis("off")
+
+plt.tight_layout()
+plt.show()
+
+
+x = next(iter(data.train_loader))[0]
+x.to(unet.device)
+
+h = unet(x, enc=True)
+
+h = h.detach().cpu().numpy()
+
+fig, ax = plt.subplots(nrows=1,ncols=1)
+
+ax.imshow(h)
+ax.set_title('Encodings')
+ax.axis('off')
 
 plt.tight_layout()
 plt.show()
