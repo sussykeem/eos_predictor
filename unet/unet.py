@@ -109,6 +109,7 @@ class Unet(nn.Module):
     def forward(self, x, enc=False):
         # Encoder path (down-sampling)
         enc1 = self.encoder1(x)
+        enc1 = self.encoder1(x)
         enc2 = self.encoder2(enc1)
         enc3 = self.encoder3(enc2)
         enc4 = self.encoder4(enc3)
@@ -149,6 +150,7 @@ class Unet(nn.Module):
 
         return output
     
+    def compute_loss(self, output, target, mask):
     def compute_loss(self, output, target, mask):
         """Compute the loss only on the masked patches"""
         # Ensure the mask is in the same device as the output and target
@@ -205,6 +207,10 @@ class Unet(nn.Module):
             running_train_rmse = 0.0
 
             for data in self.dataloader.train_loader:
+                input, labels = data
+                # Mask the input
+                masked_input, mask = self.mask_input(input)
+                masked_input, labels = masked_input.to(self.device), labels.to(self.device)
                 input, labels = data
                 # Mask the input
                 masked_input, mask = self.mask_input(input)
@@ -312,6 +318,8 @@ class Unet(nn.Module):
             for imgs, labels in self.dataloader.test_loader:
                 masked_imgs, mask = self.mask_input(imgs)
                 masked_imgs, labels = masked_imgs.to(self.device), labels.to(self.device)
+                masked_imgs, mask = self.mask_input(imgs)
+                masked_imgs, labels = masked_imgs.to(self.device), labels.to(self.device)
 
                 # Use autocast for mixed precision during forward pass
                 with autocast(device_type='cuda'):  # Forward pass in mixed precision
@@ -377,6 +385,7 @@ ax[0][1].imshow(x_recon)
 ax[0][1].set_title("Reconstructed Image")
 ax[0][1].axis("off")
 
+ax[1][0].imshow(x_t_i)
 ax[1][0].imshow(x_t_i)
 ax[1][0].set_title("Original Image - Test")
 ax[1][0].axis("off")
