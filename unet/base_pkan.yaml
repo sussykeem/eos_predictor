@@ -1,0 +1,54 @@
+# base_pkan.yaml
+
+# Network configuration for PKAN
+network:
+  type: PKAN
+  input_dim: 64
+
+layers:
+  - type: FC
+    units: 256
+    activation: ReLU
+    dropout: 0.3
+  - type: FC
+    units: 256
+    activation: ReLU
+    dropout: 0.3
+  - type: FC
+    units: 64
+    activation: ReLU
+    dropout: 0.3
+  - type: KAN
+    output: 64
+    num_kernels: 10
+  - type: FC
+    units: 32
+    activation: ReLU
+    dropout: 0.2
+  - type: FC
+    units: 16
+    activation: ReLU
+    dropout: 0.2
+
+# Optimizer settings
+optimizer:
+  type: Adam
+  learning_rate: 0.001
+  decay: 0.0001
+
+# Loss function
+loss_function: CrossEntropyLoss
+
+# Training settings
+training:
+  batch_size: 128
+  epochs: 10
+
+# Data paths
+data:
+  train_data: path/to/train_data
+  test_data: path/to/test_data
+
+# General settings
+seed: 42
+gpu: true
