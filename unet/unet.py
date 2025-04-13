@@ -151,7 +151,6 @@ class Unet(nn.Module):
         return output
     
     def compute_loss(self, output, target, mask):
-    def compute_loss(self, output, target, mask):
         """Compute the loss only on the masked patches"""
         # Ensure the mask is in the same device as the output and target
         # mask = mask.to(output.device)

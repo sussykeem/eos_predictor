@@ -6,3 +6,4 @@ deliverable/data
 unet/cnn.py
 deliverable/__pycache__/*
 deliverable/model_classes/__pycache__/*
+unet/__pycache__/*
