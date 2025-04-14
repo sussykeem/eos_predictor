@@ -13,8 +13,6 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QListWidget, QListWidgetItem,
     QFrame, QComboBox
 )
-import json
-#import py3Dmol
 
 ColorA = '#2E6082' # Darkest
 ColorB = '#92CBEA' # Mid darkness
@@ -33,19 +31,19 @@ class MainWindow(QMainWindow):
         MasterLayout.addWidget(Header("Van der Waals EOS Predictor",
                                        25, 'white', ColorA, 40, '10', '10'))
 
-        # Molecule Input
-        LowerLayout = QHBoxLayout()
-        LowerLayout.addLayout(HeaderWidgetLayout( MoleculeInput(), "Molecule Input"))
-
-        # Right Side
-        SideLayout = QVBoxLayout()
         self.output = Output()
         self.settings = Settings(self.output)
-        SideLayout.addLayout(HeaderWidgetLayout( self.settings, "Control"))
-        SideLayout.addLayout(HeaderWidgetLayout( self.output, "Output"))
+        # Molecule Input
+        UpperLayout = QHBoxLayout()
+        UpperLayout.addLayout(HeaderWidgetLayout( MoleculeInput(), "Molecule Input"))
+        UpperLayout.addLayout(HeaderWidgetLayout( self.settings, "Control"))
 
+        # Right Side
+        LowerLayout = QHBoxLayout()
+        LowerLayout.addLayout(HeaderWidgetLayout( self.output, "Output"))
+
+        MasterLayout.addLayout(UpperLayout)
         MasterLayout.addLayout(LowerLayout)
-        LowerLayout.addLayout(SideLayout)
 
         widget = QWidget()
         widget.setLayout(MasterLayout)
@@ -138,7 +136,7 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
             
             #Applies the generated image to display label
             qpixmap = QPixmap.fromImage(image)
-            qpixmap = qpixmap.scaled(500,500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            qpixmap = qpixmap.scaled(300,300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.label.setPixmap(qpixmap)
         except Exception as e:
             print(f"Invalid Smile String {e}")
