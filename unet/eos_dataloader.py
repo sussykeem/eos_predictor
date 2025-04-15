@@ -17,7 +17,6 @@ class MoleculeVisualizer():
     def visualize_molecule_2D(self, smiles):
         mol = Chem.MolFromSmiles(smiles)
         RDLogger.DisableLog('rdApp.*')
-        # mol = Chem.AddHs(mol) # add implicit hydrogens
         if mol is None:
             print("Invalid SMILES string.")
             return
@@ -28,9 +27,12 @@ class MoleculeVisualizer():
 
 class EOS_Dataset(Dataset):
 
-    def __init__(self, train=True):
-        
-        self.smiles = self.load_data(train)
+    def __init__(self, train=True, mode='reconstruct', scaler=None):
+        self.mode = mode
+        self.train = train
+        self.scaler = scaler
+        self.visualizer = MoleculeVisualizer()
+        self.smiles, self.targets = self.load_data(train, mode)
 
         transform_train = transforms.Compose([
             transforms.ToTensor(),
@@ -41,49 +43,70 @@ class EOS_Dataset(Dataset):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
         transform_test = transforms.Compose([
-          transforms.ToTensor(),
-          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        self.transform = transform_train if train else transform_test
+        self.transform_fn = transform_train if train else transform_test
 
-    def load_data(self, train):
-        urls = ['https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
-                'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv']
+    def load_data(self, train, mode):
 
-        data = pd.read_csv(urls[train])
+        if mode == 'reconstruct':
+            urls = [
+                'test_smiles.csv'
+                'train_smiles.csv'
+            ]
+        elif mode == 'predict':
+            urls = [
+                'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
+                'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv'
+            ]
 
-        X_cols = ['smile']
+        df = pd.read_csv(urls[train])
+        df = df.reset_index(drop=True)
 
-        X = data[X_cols].copy()
+        smiles = df['smile']
 
-        # Ensure the first row is not a header issue
-        X = X.reset_index(drop=True)
+        if mode == 'reconstruct':
+            targets = smiles  # We'll generate the same image again
+        elif mode == 'predict':
+            targets = df[['a', 'b']].values.astype(np.float32)
+            if self.scaler is not None:
+                if train:
+                    targets = self.scaler.fit_transform(targets)
+                else:
+                    targets = self.scaler.transform(targets)
 
-        return X['smile']
-
+        return smiles, targets
 
     def __len__(self):
         return len(self.smiles)
 
     def __getitem__(self, idx):
-        X = self.smiles[idx]
-        img = MoleculeVisualizer().visualize_molecule_2D(X)
-        img = self.transform(img)
+        smile = self.smiles[idx]
+        img = self.visualizer.visualize_molecule_2D(smile)
+        img = self.transform_fn(img)
 
-        label = img # for training on reconstructed images
+        if self.mode == 'reconstruct':
+            label = img  # autoencoder-style
+        elif self.mode == 'predict':
+            label = torch.tensor(self.targets[idx])  # a, b values
 
         return img, label
-
-    def transform(self, img):
-        return self.transform(img)            
+      
 
 class EOS_Dataloader():
 
-    def __init__(self):
+    def __init__(self, mode='reconstruct'):
 
-        train = EOS_Dataset(True)
-        test = EOS_Dataset(False)
+        assert mode in ['reconstruct', 'predict'], "Mode must be 'reconstruct' or 'predict'"
+
+        self.mode = mode
+        
+        self.scaler = StandardScaler()
+
+        train = EOS_Dataset(train=True, mode=self.mode, scaler=self.scaler)
+        test = EOS_Dataset(train=False, mode=self.mode, scaler=self.scaler)
 
         self.train_loader = DataLoader(train, batch_size=32, shuffle=True)
         self.train_smiles = train.smiles

@@ -11,12 +11,21 @@ import matplotlib.pyplot as plt
 
 from eos_dataloader import EOS_Dataloader
 
+def seed_everything(seed=42):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 class Unet(nn.Module):
-    def __init__(self, dataloader, patch_size=16, mask_ratio=0.5):
+    def __init__(self, dataloader, patch_size=16, mask_ratio=0.5, enc=False):
         super(Unet, self).__init__()
 
+        self.encoder = enc
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        print("Using device:", self.device)
         self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0)
 
         self.register_buffer("mean", torch.tensor([0.5, 0.5, 0.5]).view(1, 3, 1, 1))
@@ -64,6 +73,7 @@ class Unet(nn.Module):
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            #nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2)
@@ -72,6 +82,7 @@ class Unet(nn.Module):
     def upconv_block(self, in_channels, out_channels):
         return nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            #nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
@@ -106,7 +117,9 @@ class Unet(nn.Module):
         return masked_x, mask
 
 
-    def forward(self, x, enc=False):
+    def forward(self, x, enc=None):
+        enc = enc if enc is not None else self.encoder # set mode as forward default behavior
+
         # Encoder path (down-sampling)
         enc1 = self.encoder1(x)
         enc1 = self.encoder1(x)
@@ -153,12 +166,15 @@ class Unet(nn.Module):
     def compute_loss(self, output, target, mask):
         """Compute the loss only on the masked patches"""
         # Ensure the mask is in the same device as the output and target
-        # mask = mask.to(output.device)
+        mask = mask.to(output.device)
+
+        output_m = output * mask
+        target_m = target * mask
         
         # # Calculate Mean Squared Error loss only on the masked patches
         # loss = F.mse_loss(output, target, reduction='mean')
-        ssim_loss = 1 - self.ssim(self.denormalize(output), self.denormalize(target))
-        mse_loss  = F.mse_loss(output, target, reduction='mean')
+        ssim_loss = 1 - self.ssim(self.denormalize(output_m), self.denormalize(target_m))
+        mse_loss  = F.mse_loss(output_m, target_m, reduction='mean')
         return 0*ssim_loss + 1*mse_loss
     
     def compute_ssim(self, pred, target):
@@ -206,10 +222,6 @@ class Unet(nn.Module):
             running_train_rmse = 0.0
 
             for data in self.dataloader.train_loader:
-                input, labels = data
-                # Mask the input
-                masked_input, mask = self.mask_input(input)
-                masked_input, labels = masked_input.to(self.device), labels.to(self.device)
                 input, labels = data
                 # Mask the input
                 masked_input, mask = self.mask_input(input)
@@ -339,78 +351,136 @@ class Unet(nn.Module):
         torch.save(self.state_dict(), file_path)
         print(f"Model saved to {file_path}")
 
-data = EOS_Dataloader()
 
-x = next(iter(data.train_loader))
-x = x[0]
+class Encoder(nn.Module):
+    def __init__(self, full_unet: Unet):
+        super().__init__()
+        self.device = full_unet.device
+        self.encoder1 = full_unet.encoder1
+        self.encoder2 = full_unet.encoder2
+        self.encoder3 = full_unet.encoder3
+        self.encoder4 = full_unet.encoder4
+        self.bottleneck = full_unet.bottleneck
+        self.dropout = full_unet.dropout
+        self.flatten = full_unet.flatten
+        self.fc = full_unet.fc
 
-x_t = next(iter(data.test_loader))
-x_t = x_t[0]
-
-unet = Unet(data, patch_size=16, mask_ratio=0.25)
-
-x = x.to(unet.device)
-x_t = x_t.to(unet.device)
-
-loss_history, val_history, train_rmse_history, val_rmse_history = unet.train_unet()
-
-x_recon = unet(x).detach().cpu()[0]
-x_t_recon = unet(x_t).detach().cpu()[0]
-
-x_i = x.detach().cpu()[0]
-x_t_i = x_t.detach().cpu()[0]
-
-x_i = unet.denormalize(x_i).cpu()
-x_t_i = unet.denormalize(x_t_i).cpu()
-x_recon = unet.denormalize(x_recon).cpu()
-x_t_recon = unet.denormalize(x_t_recon).cpu()
-
-x_i = x_i[0]
-x_t_i = x_t_i[0]
-x_recon = x_recon[0]
-x_t_recon = x_t_recon[0]
-
-x_i = np.transpose(x_i.numpy(), (1,2,0))
-x_t_i = np.transpose(x_t_i.numpy(), (1,2,0))
-x_recon = np.transpose(x_recon.numpy(), (1,2,0))
-x_t_recon = np.transpose(x_t_recon.numpy(), (1,2,0))
-
-fig, ax = plt.subplots(nrows=2, ncols=2)
-
-ax[0][0].imshow(x_i)
-ax[0][0].set_title("Original Image - Train")
-ax[0][0].axis("off")
-ax[0][1].imshow(x_recon)
-ax[0][1].set_title("Reconstructed Image")
-ax[0][1].axis("off")
-
-ax[1][0].imshow(x_t_i)
-ax[1][0].imshow(x_t_i)
-ax[1][0].set_title("Original Image - Test")
-ax[1][0].axis("off")
-ax[1][1].imshow(x_t_recon)
-ax[1][1].set_title("Reconstructed Image")
-ax[1][1].axis("off")
-
-plt.tight_layout()
-plt.show()
+    def forward(self, x):
+        enc1 = self.encoder1(x)
+        enc2 = self.encoder2(enc1)
+        enc3 = self.encoder3(enc2)
+        enc4 = self.encoder4(enc3)
+        bottleneck = self.bottleneck(enc4)
+        bottleneck = self.dropout(bottleneck)
+        flat = self.flatten(bottleneck)
+        encoded = self.fc(flat)
+        return encoded
 
 
-x = next(iter(data.train_loader))[0]
-x = x.to(unet.device)
+def unet_main():
 
-h = unet(x, enc=True)
+    seed_everything(42)
 
-h = h.detach().cpu().numpy()
+    data = EOS_Dataloader(mode='reconstruct')
 
-fig, ax = plt.subplots(nrows=1,ncols=1)
+    x = next(iter(data.train_loader))
+    x = x[0]
 
-ax.imshow(h)
-ax.set_title('Encodings')
-ax.axis('off')
+    x_t = next(iter(data.test_loader))
+    x_t = x_t[0]
 
-plt.tight_layout()
-plt.show()
+    unet = Unet(data, patch_size=16, mask_ratio=0.25)
 
-unet.save_model("unet_model.pth")
+    x = x.to(unet.device)
+    x_t = x_t.to(unet.device)
 
+    loss_history, val_history, train_rmse_history, val_rmse_history = unet.train_unet()
+
+    unet.eval()
+
+    with torch.no_grad():
+        x_recon = unet(x).detach().cpu()[0]
+        x_t_recon = unet(x_t).detach().cpu()[0]
+
+    x_i = x.detach().cpu()[0]
+    x_t_i = x_t.detach().cpu()[0]
+
+    x_i = unet.denormalize(x_i).cpu()
+    x_t_i = unet.denormalize(x_t_i).cpu()
+    x_recon = unet.denormalize(x_recon).cpu()
+    x_t_recon = unet.denormalize(x_t_recon).cpu()
+
+    x_i = x_i[0]
+    x_t_i = x_t_i[0]
+    x_recon = x_recon[0]
+    x_t_recon = x_t_recon[0]
+
+    x_i = np.transpose(x_i.numpy(), (1,2,0))
+    x_t_i = np.transpose(x_t_i.numpy(), (1,2,0))
+    x_recon = np.transpose(x_recon.numpy(), (1,2,0))
+    x_t_recon = np.transpose(x_t_recon.numpy(), (1,2,0))
+
+    fig, ax = plt.subplots(nrows=2, ncols=2)
+
+    ax[0][0].imshow(x_i)
+    ax[0][0].set_title("Original Image - Train")
+    ax[0][0].axis("off")
+    ax[0][1].imshow(x_recon)
+    ax[0][1].set_title("Reconstructed Image")
+    ax[0][1].axis("off")
+
+    ax[1][0].imshow(x_t_i)
+    ax[1][0].imshow(x_t_i)
+    ax[1][0].set_title("Original Image - Test")
+    ax[1][0].axis("off")
+    ax[1][1].imshow(x_t_recon)
+    ax[1][1].set_title("Reconstructed Image")
+    ax[1][1].axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+    unet.save_model("unet_model.pth")
+
+def load_encoder():
+    seed_everything(42)
+    data = EOS_Dataloader()
+    full_net = Unet(data)
+    full_net.load_state_dict(torch.load('unet_model.pth', weights_only=True))
+    full_net.eval()
+
+    encoder = Encoder(full_unet=full_net)
+    encoder.eval()
+    encoder.to(encoder.device)
+
+    print(encoder)
+
+    x = next(iter(data.train_loader))
+    x = x[0]
+
+    x_t = next(iter(data.test_loader))
+    x_t = x_t[0]
+
+    x = x.to(encoder.device)
+    x_t = x_t.to(encoder.device)
+    with torch.no_grad():
+        x_enc = encoder(x).detach().cpu()
+        x_t_enc = encoder(x_t).detach().cpu()
+
+    x_enc_i = x_enc.detach().cpu().numpy()
+    x_t_enc_i = x_t_enc.detach().cpu().numpy()
+
+    fig, ax = plt.subplots(nrows=1,ncols=2)
+
+    ax[0].imshow(x_enc_i.T)
+    ax[0].set_title('Train Encoding')
+    ax[0].axis('off')
+
+    ax[1].imshow(x_t_enc_i.T)
+    ax[1].set_title('Test Encoding')
+    ax[1].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+unet_main()
