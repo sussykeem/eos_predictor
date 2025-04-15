@@ -5,26 +5,26 @@ import torch
 from eos_features import EOS_Features_Dataloader
 from sklearn.feature_selection import SelectFromModel
 import matplotlib.pyplot as plt
+from joblib import dump, load
 
 class RandomForestModel:
-    def __init__(self, n_estimators=100, max_depth=None, random_state=42, target='a'):
+    def __init__(self, data=None, n_estimators=100, max_depth=None, random_state=42):
         self.model = RandomForestRegressor(
             n_estimators=n_estimators,
             max_depth=max_depth,
             random_state=random_state
         )
+        self.data = data
         self.feature_selector = None
         self.best_params = None
         self.original_feature_names = ['Molecular Weight', 'LogP', 'TPSA', 'Rotatable Bonds', 
                                      'H Bond Donors', 'H Bond Acceptors', 'Aromatic Rings', 
                                      'Num Rings', 'Atom Count']
         self.selected_feature_names = None
-        self.target = target  # 'a' or 'b'
-        self.target_index = 0 if target == 'a' else 1
 
-    def train(self, dataloader, tune_hyperparams=False, select_features=False):
+    def train(self, tune_hyperparams=False, select_features=False):
         # Extract data (single target)
-        X_train, y_train = self._extract_data(dataloader)
+        X_train, y_train = self._extract_data(self.data.train)
         
         # Feature Selection (First step)
         if select_features:
@@ -41,26 +41,26 @@ class RandomForestModel:
         for inputs, targets in dataloader:
             X.append(inputs.numpy())
             # Ensure y is always 2D (batch_size, 1)
-            y.append(targets.numpy()[:, self.target_index:self.target_index+1])
+            y.append(targets.numpy())
         return np.vstack(X), np.vstack(y)
 
     def _perform_feature_selection(self, X, y):
-        print(f"\n=== Feature Selection (Target: {self.target}) ===")
+        print(f"\n=== Feature Selection ===")
         # First fit to get importances
         selector_model = RandomForestRegressor(n_estimators=50, random_state=42)
-        selector_model.fit(X, y.ravel())  # Use ravel() for single target
+        selector_model.fit(X, y)
         
         # Plot all features' importance before selection
         self._plot_feature_importance(selector_model, self.original_feature_names, 
-                                    f"Feature Importances for {self.target}")
+                                    f"Feature Importances")
         
         # Now perform actual selection
         self.feature_selector = SelectFromModel(selector_model, threshold='median')
-        self.feature_selector.fit(X, y.ravel())
+        self.feature_selector.fit(X, y)
         selected_indices = self.feature_selector.get_support(indices=True)
         self.selected_feature_names = [self.original_feature_names[i] for i in selected_indices]
         
-        print(f"Selected features for {self.target}: {self.selected_feature_names}")
+        print(f"Selected features: {self.selected_feature_names}")
         return self.feature_selector.transform(X)
 
     def _plot_feature_importance(self, model, feature_names, title):
@@ -75,7 +75,7 @@ class RandomForestModel:
         plt.show()
 
     def _tune_hyperparameters(self, X, y):
-        print(f"\n=== Hyperparameter Tuning for {self.target} ===")
+        print(f"\n=== Hyperparameter Tuning ===")
         param_grid = {
             'n_estimators': [100, 200, 400],
             'max_depth': [None, 5, 10],
@@ -90,53 +90,67 @@ class RandomForestModel:
             n_jobs=-1,
             verbose=1
         )
-        grid_search.fit(X, y.ravel())  # Use ravel() for single target
+        grid_search.fit(X, y)
         
         self.model = grid_search.best_estimator_
         self.best_params = grid_search.best_params_
-        print(f"Best params for {self.target}: {self.best_params}")
+        print(f"Best params: {self.best_params}")
 
-    def evaluate(self, dataloader):
-        X_test, y_test = self._extract_data(dataloader)
+    def evaluate(self):
+        X_test, y_test = self._extract_data(self.data.test)
         
         if self.feature_selector is not None:
             X_test = self.feature_selector.transform(X_test)
         
-        score = self.model.score(X_test, y_test.ravel())  # Use ravel() for single target
-        print(f"\nTest R² Score for {self.target}: {score:.4f}")
+        score = self.model.score(X_test, y_test)
+        print(f"\nTest R² Score: {score:.4f}")
         return score
 
     def predict(self, x):
         if isinstance(x, torch.Tensor):
             x = x.numpy()
         if self.feature_selector is not None:
-            x = self.feature_selector.transform(x.reshape(1, -1))
+            x = self.feature_selector.transform(x)
         return self.model.predict(x)
+    
+    def save_model(self, file_path="base_model_weights/random_forest.pth"):
+        """ Save the model state dictionary to a file """
+        dump(self, file_path)
+        print(f"Model saved to {file_path}")
 
-# Usage example
-if __name__ == "__main__":
-    features_data = EOS_Features_Dataloader(scale=True)
+    def test_model(self):
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,6))
 
-    # Initialize the model
-    a_model = RandomForestModel(target='a')
-    a_model.train(features_data.train, tune_hyperparams=True, select_features=True)
-    a_model.evaluate(features_data.test)
+        inputs, targets = self._extract_data(self.data.test)
+        preds = self.predict(inputs)
+        outputs = self.data.t_scaler.inverse_transform(preds)
+        targets = self.data.t_scaler.inverse_transform(targets)
 
-    b_model = RandomForestModel(target='b')
-    b_model.train(features_data.train, tune_hyperparams=True, select_features=True)
-    b_model.evaluate(features_data.test)
+        a_pred = outputs[:,0]
+        b_pred = outputs[:,1]
 
-    atom_name = 'Thiophene'
-    features = np.array([84.143, 1.7481, 0.0, 0, 0, 1, 1, 1, 5])
-    const = [17.21, 0.1058]
+        ax[0].scatter(targets[:,0], a_pred, color='r', alpha=.5)
+        ax[0].set_title('A predicted vs A actual')
+        ax[0].set_ylabel('A pred')
+        ax[0].set_xlabel('A actual')
+        ax[1].scatter(targets[:,1], b_pred, color='b', alpha=.5)
+        ax[1].set_title('B predicted vs B actual')
+        ax[1].set_ylabel('B pred')
+        ax[1].set_xlabel('B actual')
+        
+        fig.suptitle('Random Forest Test Prediction Results')
+        plt.tight_layout()
+        plt.show()
 
-    input_scaled = features_data.in_scaler.transform(features.reshape(1,-1))
+# # Usage example
+# if __name__ == "__main__":
+#     features_data = EOS_Features_Dataloader(scale=True)
 
-    a_pred = a_model.predict(input_scaled)
-    b_pred = b_model.predict(input_scaled)
+#     # Initialize the model
+#     model = RandomForestModel(features_data)
+#     model.train(tune_hyperparams=True, select_features=True)
+#     model.evaluate()
 
-    a_pred = features_data.t_scaler.inverse_transform(np.array([a_pred[0], 0]).reshape(1,-1))
-    b_pred = features_data.t_scaler.inverse_transform(np.array([0, b_pred[0]]).reshape(1,-1))
+#     model.test_model()
 
-    print(f'{atom_name} Prediction: a: {a_pred[0][0]}, b: {b_pred[0][1]}')
-    print(f'{atom_name} Actual: a: {const[0]:.4f}, b: {const[1]:.4f}')
+#     model.save_model()
