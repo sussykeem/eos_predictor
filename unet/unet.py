@@ -8,6 +8,7 @@ from torchmetrics.image.ssim import StructuralSimilarityIndexMeasure
 import torch.optim as optim
 from torch.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from eos_dataloader import EOS_Dataloader
 
@@ -197,7 +198,7 @@ class Unet(nn.Module):
         # return the cropped features
         return encFeatures
     
-    def train_unet(self, epochs=1000, learning_rate=0.01, patience=10, min_delta=0.001):
+    def train_unet(self, epochs=10, learning_rate=0.01, patience=10, min_delta=0.001):
         optimizer = optim.AdamW(self.parameters(), lr=learning_rate, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5)
         scaler = GradScaler()  # Initialize GradScaler for mixed precision training
@@ -221,7 +222,7 @@ class Unet(nn.Module):
             running_smi = 0.0
             running_train_rmse = 0.0
 
-            for data in self.dataloader.train_loader:
+            for data in tqdm(self.dataloader.train_loader):
                 input, labels = data
                 # Mask the input
                 masked_input, mask = self.mask_input(input)
@@ -483,4 +484,4 @@ def load_encoder():
     plt.tight_layout()
     plt.show()
 
-unet_main()
+#unet_main()

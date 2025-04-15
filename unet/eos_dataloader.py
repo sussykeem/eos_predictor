@@ -53,8 +53,8 @@ class EOS_Dataset(Dataset):
 
         if mode == 'reconstruct':
             urls = [
-                'test_smiles.csv'
-                'train_smiles.csv'
+                'test_smiles.csv',
+                'train_smiles.csv',
             ]
         elif mode == 'predict':
             urls = [
@@ -65,7 +65,7 @@ class EOS_Dataset(Dataset):
         df = pd.read_csv(urls[train])
         df = df.reset_index(drop=True)
 
-        smiles = df['smile']
+        smiles = df['smile'][:5000]
 
         if mode == 'reconstruct':
             targets = smiles  # We'll generate the same image again
@@ -108,7 +108,7 @@ class EOS_Dataloader():
         train = EOS_Dataset(train=True, mode=self.mode, scaler=self.scaler)
         test = EOS_Dataset(train=False, mode=self.mode, scaler=self.scaler)
 
-        self.train_loader = DataLoader(train, batch_size=32, shuffle=True)
+        self.train_loader = DataLoader(train, batch_size=256, shuffle=True)
         self.train_smiles = train.smiles
-        self.test_loader = DataLoader(test, batch_size=32, shuffle=True)
+        self.test_loader = DataLoader(test, batch_size=256, shuffle=True)
         self.test_smiles = test.smiles
