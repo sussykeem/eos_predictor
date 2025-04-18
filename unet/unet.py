@@ -77,7 +77,7 @@ class Unet(nn.Module):
             #nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2)
+            nn.MaxPool2d(kernel_size=4, stride=4)
         )
     
     def upconv_block(self, in_channels, out_channels):
@@ -90,7 +90,7 @@ class Unet(nn.Module):
     
     def upscale_block(self, in_channels, out_channels):
         return nn.Sequential(
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2),
+            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=4, stride=4),
         )
     
     def mask_input(self, x):
@@ -330,8 +330,6 @@ class Unet(nn.Module):
             for imgs, labels in self.dataloader.test_loader:
                 masked_imgs, mask = self.mask_input(imgs)
                 masked_imgs, labels = masked_imgs.to(self.device), labels.to(self.device)
-                masked_imgs, mask = self.mask_input(imgs)
-                masked_imgs, labels = masked_imgs.to(self.device), labels.to(self.device)
 
                 # Use autocast for mixed precision during forward pass
                 with autocast(device_type='cuda'):  # Forward pass in mixed precision
@@ -443,6 +441,50 @@ def unet_main():
 
     unet.save_model("unet_model.pth")
 
+def load_unet():
+    seed_everything(42)
+    data = EOS_Dataloader()
+    full_net = Unet(data)
+    full_net.load_state_dict(torch.load('unet_model.pth', weights_only=True))
+    full_net.eval()
+    full_net.to(full_net.device)
+
+    x = next(iter(data.train_loader))
+    x = x[0]
+
+    x_t = next(iter(data.test_loader))
+    x_t = x_t[0]
+
+    x = x.to(full_net.device)
+    x_t = x_t.to(full_net.device)
+    with torch.no_grad():
+        x_enc = full_net(x)
+        x_t_enc = full_net(x_t)
+
+    x_enc_i = x_enc.detach().cpu().numpy()
+    x_t_enc_i = x_t_enc.detach().cpu().numpy()
+
+    fig, ax = plt.subplots(nrows=2,ncols=2)
+
+    ax[0][0].imshow(x[0].detach().cpu().numpy().transpose(1, 2, 0))
+    ax[0][0].set_title('Train Original')
+    ax[0][0].axis('off')
+
+    ax[0][1].imshow(x_enc_i[0].transpose(1, 2, 0))
+    ax[0][1].set_title('Train Reconstruction')
+    ax[0][1].axis('off')
+
+    ax[1][0].imshow(x_t[0].detach().cpu().numpy().transpose(1, 2, 0))
+    ax[1][0].set_title('Test Original')
+    ax[1][0].axis('off')
+
+    ax[1][1].imshow(x_t_enc_i[0].transpose(1, 2, 0))
+    ax[1][1].set_title('Test Reconstruction')
+    ax[1][1].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
 def load_encoder():
     seed_everything(42)
     data = EOS_Dataloader()
@@ -484,4 +526,4 @@ def load_encoder():
     plt.tight_layout()
     plt.show()
 
-#unet_main()
+load_unet()

@@ -1,0 +1,28 @@
+# base_pkan.yaml
+
+# Network configuration for PKAN
+network:
+  type: PINN
+  input_dim: 2048
+
+layers:
+  - type: FC
+    units: 1024
+    activation: ReLU
+    dropout: 0.2
+  - type: FC
+    units: 512
+    activation: ReLU
+    dropout: 0.2
+  - type: FC
+    units: 256
+    activation: ReLU
+    dropout: 0.2
+  - type: FC
+    units: 128
+    activation: ReLU
+    dropout: 0.2
+  - type: FC
+    units: 64
+    activation: ReLU
+    dropout: 0.2

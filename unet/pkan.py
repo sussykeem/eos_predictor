@@ -10,7 +10,7 @@ from rdkit.Chem import Descriptors
 from torch.utils.data import Dataset, DataLoader
 
 #maybe delete these later
-from unet import Unet
+from unet_2 import Unet
 from eos_dataloader import EOS_Dataloader
 import yaml
 
@@ -95,7 +95,7 @@ class PKAN(nn.Module):
 
         train_data = PKAN_Data(dataloader, encoder)
         test_data = PKAN_Data(dataloader, encoder, False)
-        self.train_loader = DataLoader(train_data, batch_size=128, shuffle=True)
+        self.train_loader = EOS_Dataloader(train_data, batch_size=128, shuffle=True)
         self.test_loader = DataLoader(test_data, batch_size=128, shuffle=True)
 
         self.activations = {
@@ -359,7 +359,7 @@ DataLoader = EOS_Dataloader()
 encoder = Unet(DataLoader)
 
 # Load the pre-trained weights from the file
-model_path = './unet.model.pth'  # Adjust the path if needed
+model_path = './unet2_model.pth'  # Adjust the path if needed
 encoder.load_state_dict(torch.load(model_path, weights_only=True), strict=False)
 
 # Move the model to the correct device (GPU or CPU)

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import yaml
 
 from eos_dataloader import EOS_Dataloader
-from unet import Unet, Encoder
+from unet_2 import Unet, Encoder
 
 class Predictor(nn.Module):
 
@@ -35,9 +35,9 @@ class Predictor(nn.Module):
         return config
 
     def load_encoder(self):
-        unet_data = EOS_Dataloader('reconstruct')
+        unet_data = EOS_Dataloader(mode='reconstruct')
         full_unet = Unet(unet_data)
-        full_unet.load_state_dict(torch.load('unet_model.pth', weights_only=True))
+        full_unet.load_state_dict(torch.load('unet2_model.pth', weights_only=True))
         full_unet.eval()
 
         encoder = Encoder(full_unet)
@@ -109,12 +109,16 @@ class Predictor(nn.Module):
             pred = pred.cpu().numpy()
             return self.dataloader.scaler.inverse_transform(pred), self.dataloader.scaler.inverse_transform(y) if y is not None else None
 
-    def train_predictor(self, epochs=100, learning_rate=1e-3, patience=10, min_delta=0.001, accuracy_threshold=0.05):
+    def train_predictor(self, epochs=100, learning_rate=1e-2, patience=10, min_delta=0.001, accuracy_threshold=0.05):
 
         optimizer = optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5)
 
         loss_history = []
+        val_loss_history = []
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+        best_model_weights = None
 
         for epoch in range(epochs):
 
@@ -137,13 +141,53 @@ class Predictor(nn.Module):
                 loss_history.append(loss.item())
 
                 num_batches += 1
+
             avg_loss = running_loss / num_batches
 
-            scheduler.step(avg_loss)
+            avg_val_loss = self.eval_predictor()
 
-            print(f"Epoch [{epoch+1}/{epochs}] Loss: {avg_loss:.4f} | LR: {scheduler.get_last_lr()[0]:.6f}")
-                
-data = EOS_Dataloader('predict')
+            scheduler.step(avg_val_loss)
+
+            print(f"Epoch [{epoch+1}/{epochs}] Train Loss: {avg_loss:.4f} | Test Loss: {avg_val_loss:.4f} LR: {scheduler.get_last_lr()[0]:.6f}")
+
+            if avg_val_loss < best_val_loss - min_delta:
+                best_val_loss = avg_val_loss
+                best_model_weights = self.state_dict()
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+
+            if epochs_no_improve >= patience:
+                print(f"Early stopping triggered after {epoch + 1} epochs!")
+                break
+        
+        if best_model_weights:
+            self.load_state_dict(best_model_weights)
+            print("Restored best model weights.")
+
+        plt.figure()
+        plt.plot(loss_history, label='Training Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.title('Predictor Training Loss')
+        plt.legend()
+        plt.show()
+
+    def eval_predictor(self):
+        self.eval()
+
+        with torch.no_grad():
+            total_loss = 0.0
+            num_batches = len(self.dataloader.test_loader)
+            for imgs, labels in self.dataloader.test_loader:
+                imgs, labels = imgs.to(self.device), labels.to(self.device)
+                predictions = self(imgs)
+                loss = self.loss(predictions, labels)
+                total_loss += loss.item()
+        return total_loss / num_batches
+    
+    
+data = EOS_Dataloader(mode='predict')
 predictor = Predictor(config='base_decoder.yaml', dataloader=data)
 
 predictor.train_predictor()
