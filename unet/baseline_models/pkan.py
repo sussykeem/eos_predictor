@@ -56,7 +56,7 @@ class PKAN(nn.Module):
         return self.mlp(x)
     
     def train_model(self, epochs=100, learning_rate=0.01, phys_factor=0.1, betas=(0.9, 0.999), weight_decay=0.0, patience=10, min_delta=0.001,):
-        optimizer = optim.Adam(self.parameters(), lr=learning_rate, betas=betas, weight_decay=weight_decay)
+        optimizer = optim.Adam(self.parameters(), lr=self.config['learning_rate'], betas=self.config['betas'], weight_decay=self.config['weight_decay'])
         self.train()
         best_val_loss = float('inf')
         epochs_no_improve = 0

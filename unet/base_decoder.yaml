@@ -1,28 +1,35 @@
-# base_pkan.yaml
-
-# Network configuration for PKAN
-network:
-  type: PINN
-  input_dim: 2048
-
+base_factor: 10
+batch_size: 32
+betas:
+- 0.9
+- 0.98
+epochs: 150
 layers:
-  - type: FC
-    units: 1024
-    activation: ReLU
-    dropout: 0.2
-  - type: FC
-    units: 512
-    activation: ReLU
-    dropout: 0.2
-  - type: FC
-    units: 256
-    activation: ReLU
-    dropout: 0.2
-  - type: FC
-    units: 128
-    activation: ReLU
-    dropout: 0.2
-  - type: FC
-    units: 64
-    activation: ReLU
-    dropout: 0.2
+- activation: ReLU
+  dropout: 0.3
+  num_kernels: 4
+  type: FC
+  units: 1024
+- activation: ReLU
+  dropout: 0.5
+  type: FC
+  units: 512
+- activation: ReLU
+  dropout: 0.4
+  type: FC
+  units: 256
+- activation: ReLU
+  dropout: 0.3
+  type: FC
+  units: 128
+- activation: ReLU
+  dropout: 0.2
+  type: FC
+  units: 64
+learning_rate: 0.0001
+mean_factor: 10
+network:
+  input_dim: 2048
+  type: PKAN
+phys_factor: 5
+weight_decay: 0.0001

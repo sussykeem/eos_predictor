@@ -9,6 +9,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from rdkit import RDLogger
+from rdkit.Chem import Descriptors
 
 # data cols
 # ['sci_name','name','cid','smile','Molecular Weight','LogP','TPSA','Rotatable Bonds','H Bond Donors','H Bond Acceptors','Aromatic Rings','Num Rings','Atom Count','coulomb_matrix','embeddings']
@@ -25,6 +26,20 @@ class MoleculeVisualizer():
         img = Draw.MolToImage(mol, size=(256, 256))
 
         return img
+    
+class MolecularWeight():
+    def __init__(self):
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    def compute_molecular_weights(self, smi):
+        """Computes molecular weights for all SMILES strings in dataset."""
+        mol = Chem.MolFromSmiles(smi)
+        if mol:
+            mw = Descriptors.MolWt(mol)  # Compute molecular weight
+        else:
+            print(f"Invalid SMILES: {smi}")  # Debugging output
+            mw = 0 # Assign a default valid value (e.g., 0)
+        return mw  
 
 class EOS_Dataset(Dataset):
 
@@ -34,6 +49,7 @@ class EOS_Dataset(Dataset):
         self.scaler = scaler
         self.visualizer = MoleculeVisualizer()
         self.smiles, self.targets = self.load_data(train, mode, num)
+        self.MolWeights = MolecularWeight()
 
         transform_train = transforms.Compose([
             transforms.ToTensor(),
@@ -95,10 +111,10 @@ class EOS_Dataset(Dataset):
 
         if self.mode == 'reconstruct':
             label = img  # autoencoder-style
+            return img, label
         elif self.mode == 'predict':
             label = torch.tensor(self.targets[idx])  # a, b values
-
-        return img, label
+            return img, label, self.MolWeights.compute_molecular_weights(smile)
     
     def safe_invert(self, img):
 

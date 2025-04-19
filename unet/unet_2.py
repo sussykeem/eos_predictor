@@ -193,8 +193,8 @@ class Unet(nn.Module):
         return masked_x, mask
 
 
-    def forward(self, x, enc=None):
-        enc = enc if enc is not None else self.encoder # set mode as forward default behavior
+    def forward(self, x, enc=False):
+        #enc = enc if enc is not None else self.encoder # set mode as forward default behavior
 
         chn1 = self.channel1(x)
         # Encoder path (down-sampling)
@@ -555,5 +555,3 @@ def load_encoder():
 
     plt.tight_layout()
     plt.show()
-
-load_encoder()
