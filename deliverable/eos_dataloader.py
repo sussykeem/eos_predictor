@@ -1,12 +1,15 @@
 from rdkit import Chem
-from rdkit.Chem import Draw
+from rdkit.Chem import Draw, Descriptors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torchvision.transforms.functional as F
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
+from rdkit import RDLogger
+import random
 
 # data cols
 # ['sci_name','name','cid','smile','Molecular Weight','LogP','TPSA','Rotatable Bonds','H Bond Donors','H Bond Acceptors','Aromatic Rings','Num Rings','Atom Count','coulomb_matrix','embeddings']
@@ -15,119 +18,149 @@ class MoleculeVisualizer():
 
     def visualize_molecule_2D(self, smiles):
         mol = Chem.MolFromSmiles(smiles)
-        mol = Chem.AddHs(mol) # add implicit hydrogens
+        RDLogger.DisableLog('rdApp.*')
         if mol is None:
             print("Invalid SMILES string.")
             return
 
-        img = Draw.MolToImage(mol, size=(300, 300))
+        img = Draw.MolToImage(mol, size=(256, 256))
 
         return img
+    
+class MolecularWeight():
+    def __init__(self):
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    def compute_molecular_weights(self, smi):
+        """Computes molecular weights for all SMILES strings in dataset."""
+        mol = Chem.MolFromSmiles(smi)
+        if mol:
+            mw = Descriptors.MolWt(mol)  # Compute molecular weight
+        else:
+            print(f"Invalid SMILES: {smi}")  # Debugging output
+            mw = 0 # Assign a default valid value (e.g., 0)
+        return mw  
 
 class EOS_Dataset(Dataset):
 
-    def __init__(self, scale=True, train=True):
-        
-        self.imgs, self.y, self.smiles = self.load_data(train)
-        self.y = self.y.values.astype(np.float32)
+    def __init__(self, train=True, mode='reconstruct', scaler=None, num=None):
+        self.mode = mode
+        self.train = train
+        self.scaler = scaler
+        self.visualizer = MoleculeVisualizer()
+        self.mol_weight = MolecularWeight()
+        self.smiles, self.targets = self.load_data(train, mode, num)
 
         transform_train = transforms.Compose([
             transforms.ToTensor(),
+            transforms.Lambda(lambda img: F.invert(img)),
+            #transforms.Lambda(lambda img: self.safe_invert(img)),
             transforms.RandomApply([transforms.RandomRotation(10)], p=0.5),
             transforms.RandomApply([transforms.RandomAffine(degrees=0, translate=(0.1, 0.1))], p=0.5),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2),
-            transforms.RandomApply([transforms.RandomErasing(p=0.5, scale=(0.02, 0.1))], p=0.3),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.RandomApply([AddRandomNoise(noise_range=0.25)], p=1),
         ])
         transform_test = transforms.Compose([
-          transforms.ToTensor(),
-          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.ToTensor(),
+            #transforms.Lambda(lambda img: self.safe_invert(img)),
+            transforms.Lambda(lambda img: F.invert(img)),
+            transforms.RandomApply([AddRandomNoise(noise_range=0.25)], p=1),
         ])
 
-        self.transform = transform_train if train else transform_test
+        self.transform_fn = transform_train if train else transform_test
 
-        # if k_augs:
-        #     assert k_augs > 0
-        #     self.imgs, self.y = self.data_aug(k_augs)
+    def load_data(self, train, mode, num=None):
 
-        # Separate scalers for a and b
-        self.scaler_a = StandardScaler()
-        self.scaler_b = StandardScaler()
+        if mode == 'reconstruct':
+            urls = [
+                'dataset/test_smiles.csv',
+                'dataset/train_smiles.csv',
+            ]
+        elif mode == 'predict':
+            urls = [
+                    'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
+                    'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv'
+                ]
 
-        # Fit scalers on the respective columns
-        if scale:
-          self.y[:, 0] = self.scaler_a.fit_transform(self.y[:, 0].reshape(-1, 1)).reshape(-1)
-          self.y[:, 1] = self.scaler_b.fit_transform(self.y[:, 1].reshape(-1, 1)).reshape(-1)
+        df = pd.read_csv(urls[train])
+        df = df.reset_index(drop=True)
 
-    def load_data(self, train):
-        urls = ['https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
-                'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv']
-        url = urls[int(train)]
+        if num is not None:
+            smiles = df['smile'][:num]
+            if not train:
+                smiles = df['smile'][:int(num/5)]
+        else:
+            smiles = df['smile']
 
-        imgs = []
+        if mode == 'reconstruct':
+            targets = smiles  # We'll generate the same image again
+        elif mode == 'predict':
+            targets = df[['a', 'b']].values.astype(np.float32)
+            if self.scaler is not None:
+                if train:
+                    targets = self.scaler.fit_transform(targets)
+                else:
+                    targets = self.scaler.transform(targets)
 
-        data = pd.read_csv(url)
-
-        X_cols = ['smile']
-        y_cols = ['a', 'b']
-
-        X = data[X_cols].copy()
-        y = data[y_cols]
-
-        # Ensure the first row is not a header issue
-        X = X.reset_index(drop=True)
-
-        for smile in X['smile']:
-            img = MoleculeVisualizer().visualize_molecule_2D(smile)
-            imgs.append(np.array(img, dtype=np.float32))
-        imgs = np.array(imgs, dtype=np.uint8)
-
-        return imgs, y, X['smile']
-
+        return smiles, targets
 
     def __len__(self):
-        return len(self.imgs)
+        return len(self.smiles)
 
     def __getitem__(self, idx):
-        img = self.imgs[idx]
-        label = self.y[idx]
+        smile = self.smiles[idx]
+        img = self.visualizer.visualize_molecule_2D(smile)
+        img = self.transform_fn(img)
 
-        img = self.transform(img)
-
-        return img, label
-
-    def transform(self, img):
-        return self.transform(img)
+        if self.mode == 'reconstruct':
+            label = img  # autoencoder-style
+            return img, label
+        elif self.mode == 'predict':
+            label = torch.tensor(self.targets[idx])  # a, b values
+            mol_weight = self.mol_weight.compute_molecular_weights(smile)
+            return img, label, mol_weight
     
-    def inverse_transform(self, labels):
-        labels_unscaled = np.zeros_like(labels)
-        labels_unscaled[:, 0] = self.scaler_a.inverse_transform(labels[:,0].reshape(-1,1)).reshape(-1)
-        labels_unscaled[:, 1] = self.scaler_b.inverse_transform(labels[:,1].reshape(-1,1)).reshape(-1)
-        return labels_unscaled
-    
-    # def data_aug(self, k_augs):
+    def safe_invert(self, img):
 
-    #     aug_imgs = np.repeat(self.imgs, k_augs, axis=0)
-    #     factor_y = np.repeat(self.y, k_augs, axis=0)
+        summed_img = torch.mean(img, axis=0)
 
-    #     transform = transforms.Compose([
-            
-    #     ])
+        mask = (summed_img == 1)
+        mask = mask.unsqueeze(0).repeat(3, 1, 1)
+        img[mask] = 0.5
+        
+        mask = (summed_img < .5)
+        mask = mask.unsqueeze(0).repeat(3, 1, 1)
+        img[mask] = 1
 
-    #     for i, img in enumerate(aug_imgs):
-    #         img = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1)
-    #         if i % k_augs == 0:
-    #             c_img = img
-    #         else:
-    #             c_img = transform(img)
-    #         c_img = c_img.permute(1, 2, 0).numpy()
-    #         aug_imgs[i] = c_img
-    #     return aug_imgs, factor_y               
+        return img
+
+class AddRandomNoise:
+    def __init__(self, noise_range=0.05):
+        self.noise_range = noise_range  # Max magnitude of noise
+
+    def __call__(self, img):
+        # img: Tensor [C, H, W] with values in [0, 1]
+        noise = torch.empty_like(img).uniform_(-self.noise_range, self.noise_range)
+        noisy_img = img + noise
+        return torch.clamp(noisy_img, 0.0, 1.0)
+
 
 class EOS_Dataloader():
 
-    def __init__(self, train, test):
-        self.train_loader = DataLoader(train, batch_size=32, shuffle=True)
-        self.test_loader = DataLoader(test, batch_size=32, shuffle=False)
+
+    def __init__(self, batch_size=32, mode='reconstruct', num=None):
+
+        assert mode in ['reconstruct', 'predict'], "Mode must be 'reconstruct' or 'predict'"
+
+        self.mode = mode
+
+        self.batch_size = batch_size
+        
+        self.scaler = StandardScaler()
+
+        train = EOS_Dataset(train=True, mode=self.mode, scaler=self.scaler, num=num)
+        test = EOS_Dataset(train=False, mode=self.mode, scaler=self.scaler, num=num)
+
+        self.train_loader = DataLoader(train, batch_size=self.batch_size, shuffle=True)
         self.train_smiles = train.smiles
+        self.test_loader = DataLoader(test, batch_size=self.batch_size, shuffle=True)
         self.test_smiles = test.smiles

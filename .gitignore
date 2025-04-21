@@ -8,3 +8,4 @@ deliverable/__pycache__/*
 deliverable/model_classes/__pycache__/*
 unet/__pycache__/*
 unet/baseline_models/*.pth
+deliverable/dataset/*

@@ -1,0 +1,39 @@
+betas:
+- 0.9
+- 0.98
+epochs: 50
+factor: 5
+grad_clip: false
+layers:
+- activation: ReLU
+  dropout: 0.5
+  num_kernels: 4
+  type: FC
+  units: 1024
+- activation: ReLU
+  dropout: 0.2
+  type: FC
+  units: 512
+- activation: ReLU
+  dropout: 0.2
+  type: FC
+  units: 256
+- activation: ReLU
+  dropout: 0.2
+  type: FC
+  units: 128
+- num_kernels: 10
+  output: 128
+  type: KAN
+- activation: ReLU
+  dropout: 0.2
+  type: FC
+  units: 64
+learning_rate: 0.001
+momentum: 0.99
+nesterov: false
+network:
+  input_dim: 2048
+  type: PINN
+sgd: true
+weight_decay: 0.0001

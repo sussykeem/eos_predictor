@@ -5,10 +5,11 @@ import torch
 import numpy as np
 import torchvision.transforms as transforms
 from eos_dataloader import EOS_Dataset
-from build_model import Model
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from scipy import stats
 import seaborn as sns
+from predictor import Predictor
 
 # Set random seeds
 seed = 42
@@ -30,19 +31,17 @@ class MolPredictor():
             self.e_pred = True
         self.train = EOS_Dataset()
 
-    def load_encoder(self, path):
+    def load_predictor(self, model_path='base_decoder.yaml', weight_path='predictor.pth'):
         try:
-
-            weight_path = path[0]
-            model_path = path[1]
-
-            model = Model(model_path)
-            model.network.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True), strict=False)
-            model.network.to(device)
-            model.network.eval()
+            model = Predictor(model_path)
+            model.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True), strict=False)
+            model.to(device)
+            model.eval()
         except Exception as e:
             print(f'Failed {e}')
         return model
+    
+    def load_baseline(self, type='', model_path='', weight_path='')
     
     def load_decoder(self, path):
         try:
@@ -60,7 +59,8 @@ class MolPredictor():
             image = Image.open(im_path).convert("RGB")
             transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.Lambda(lambda img: F.invert(img)),
+            transforms.RandomApply([AddRandomNoise(noise_range=0.25)], p=1),
             ])
             try:
                 image_tensor = transform(image).unsqueeze(0).to(device)

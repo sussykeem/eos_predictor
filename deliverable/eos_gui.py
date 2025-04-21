@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor, QPalette, QImage
-from PyQt5.QtCore import Qt, QProcess
+from PyQt5.QtCore import Qt, QProcess, QUrl
 from PIL import Image
 from rdkit import rdBase
 from rdkit import Chem
@@ -13,13 +13,15 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QListWidget, QListWidgetItem,
     QFrame, QComboBox
 )
-import json
+from PyQt5.QtWebEngineWidgets import QWebEngineView
+import os
 #import py3Dmol
 
 ColorA = '#2E6082' # Darkest
 ColorB = '#92CBEA' # Mid darkness
 ColorC = '#C7E5F5' # Brightest
 
+os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(sys.prefix, "Library", "plugins", "platforms")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -110,12 +112,18 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
         text_input_layout.setAlignment(Qt.AlignHCenter)
 
         # Image display label
-        self.label = QLabel()
-        layout = QVBoxLayout()
-        layout.addLayout(text_input_layout)
-        layout.addWidget(self.label)
-        layout.setAlignment(self.label, Qt.AlignCenter)
-        self.setLayout(layout)
+        # self.label = QLabel()
+        # layout = QVBoxLayout()
+        # layout.addLayout(text_input_layout)
+        # layout.addWidget(self.label)
+        # layout.setAlignment(self.label, Qt.AlignCenter)
+        # self.setLayout(layout)
+
+        self.chemdoodle = QWebEngineView(self)
+        html_file_path = os.path.abspath('./chemdoodle.html')
+        print(QUrl.fromLocalFile(html_file_path))
+        self.chemdoodle.load(QUrl.fromLocalFile(html_file_path))
+        self.text_input.addWidget(self.chemdoodle)
 
     def generate_button(self): # Function runs when generate button is pressed
         # Takes text input, passes into rdkit, generates image based on SMILES
@@ -137,9 +145,9 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
                 file.write(smi)
             
             #Applies the generated image to display label
-            qpixmap = QPixmap.fromImage(image)
-            qpixmap = qpixmap.scaled(500,500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.label.setPixmap(qpixmap)
+            # qpixmap = QPixmap.fromImage(image)
+            # qpixmap = qpixmap.scaled(500,500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # self.label.setPixmap(qpixmap)
         except Exception as e:
             print(f"Invalid Smile String {e}")
 
