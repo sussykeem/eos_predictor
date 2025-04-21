@@ -10,3 +10,4 @@ unet/__pycache__/*
 unet/baseline_models/*.pth
 deliverable/dataset/*
 /mvp/data
+/deliverable/data
