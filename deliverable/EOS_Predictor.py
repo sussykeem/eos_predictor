@@ -1,17 +1,13 @@
 import sys
 from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor, QPalette, QImage
 from PyQt5.QtCore import Qt, QProcess
-from PIL import Image
-from rdkit import rdBase
 from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem import Draw, rdDepictor
+from rdkit.Chem import Draw
 from PyQt5.QtWidgets import ( 
     QApplication, QMainWindow, 
     QLabel, QWidget, QPushButton, QTextEdit, QLineEdit,
     QVBoxLayout, QHBoxLayout,
-    QSizePolicy, QListWidget, QListWidgetItem,
-    QFrame, QComboBox, QGraphicsOpacityEffect
+    QSizePolicy, QComboBox, QGraphicsOpacityEffect
 )
 
 ColorA = '#2E6082' # Darkest
@@ -131,123 +127,6 @@ class MoleculeInput(QWidget): # SMILES string input, generates molecular image
         except Exception as e:
             print(f"Invalid Smile String {e}")
 
-
-# class Settings(QWidget): # Model selection for debugging purposes
-#     def __init__(self, outputReference):
-#         super().__init__()
-
-#         self.setAutoFillBackground(True)
-#         palette = QPalette()
-#         palette.setColor(QPalette.Window, QColor(ColorB))
-#         self.setPalette(palette)
-
-#         self.encoder_list = {
-#             'CNN1': {
-#                     'desc': '3 Conv layers, featuring batchNorm and ReLU, to an fc pipeline. Output vector 64.',
-#                     'path': 'deliverable/models/cnn_1.pth',
-#                     'img_path': 'deliverable/imgs/cnn_architecture.png'
-#             },
-#             'CNN2': {
-#                     'desc': 'Model description, whatever whatever blah blah',
-#                     'path': 'deliverable/models/cnn_1.pth',
-#                     'img_path': 'deliverable/imgs/cnn_architecture.png'
-#             },
-#             'CNN3': {
-#                     'desc': 'Model description, whatever whatever blah blah',
-#                     'path': 'deliverable/models/cnn_1.pth',
-#                     'img_path': 'deliverable/imgs/cnn_architecture.png'
-#             },
-#         }
-#         self.decoder_list = {
-#             'None': {
-#                     'desc': 'No decoder',
-#                     'path': '',
-#                     'img_path': 'deliverable/imgs/pkan.png'
-#             },
-#             'PKAN1': {
-#                     'desc': 'Model description, whatever whatever blah blah',
-#                     'path': 'deliverable/models/pkan_model.pth',
-#                     'img_path': 'deliverable/imgs/pkan.png'
-#             },
-#             'PKAN2': {
-#                     'desc': 'Model description, whatever whatever blah blah',
-#                     'path': 'deliverable/models/pkan_model.pth',
-#                     'img_path': 'deliverable/imgs/pkan.png'
-#             },
-#             'PKAN3': {
-#                     'desc': 'Model description, whatever whatever blah blah',
-#                     'path': 'deliverable/models/pkan_model.pth',
-#                     'img_path': 'deliverable/imgs/pkan.png'
-#             },
-#         }
-
-#         self.encoder_select = QComboBox()
-#         self.encoder_select.addItems(self.encoder_list.keys())
-#         self.decoder_select = QComboBox()
-#         self.decoder_select.addItems(self.decoder_list.keys())
-
-
-#         self.encoder_display = Display_Model(True, self.encoder_select, self.encoder_list, outputReference)
-#         self.decoder_display = Display_Model(False, self.decoder_select, self.decoder_list, outputReference)
-
-#         encoder_label = QLabel("Encoder:")
-#         encoder_label.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {ColorA}; padding: 5px;")
-#         encoder_label.setAlignment(Qt.AlignLeft)
-#         encoder_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-
-#         decoder_label = QLabel("Decoder:")
-#         decoder_label.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {ColorA}; padding: 5px;")
-#         decoder_label.setAlignment(Qt.AlignLeft)
-#         decoder_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-
-#         layout = QVBoxLayout()
-#         layout.addWidget(encoder_label)
-#         layout.addWidget(self.encoder_display)
-#         layout.addWidget(decoder_label)
-#         layout.addWidget(self.decoder_display)
-
-#         self.setLayout(layout)
-        
-
-# class Display_Model(QWidget):
-#     def __init__(self, isEncoder, comboBox, ModelList, outputReference):
-#         super().__init__()
-
-#         self.setAutoFillBackground(True)
-#         palette = QPalette()
-#         palette.setColor(QPalette.Window, QColor(ColorC))
-#         self.setPalette(palette)
-
-#         self.isEncoder = isEncoder
-#         self.comboBox = comboBox
-#         self.modelList = ModelList
-#         self.outputReference = outputReference
-#         comboBox.currentIndexChanged.connect(self.updateDisplay)
-
-#         self.img   = QLabel()
-#         self.desc  = QLabel()
-#         self.desc.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-#         self.desc.setWordWrap(True)
-
-#         self.updateDisplay()
-
-#         layout = QHBoxLayout()
-#         layout.addWidget(self.img)
-#         layout.addWidget(self.desc)
-#         layout.addWidget(self.comboBox)
-#         self.setLayout(layout)
-
-#     def updateDisplay(self):
-#         selectedModel = self.comboBox.currentText()
-#         desc = self.modelList[selectedModel]['desc']
-#         path = self.modelList[selectedModel]['path']
-#         self.outputReference.update_path(self.isEncoder, path)
-#         img_path = self.modelList[selectedModel]['img_path']
-
-#         self.img.setFixedSize(160,120)
-#         self.img.setPixmap(QPixmap(img_path).scaled(160, 120, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
-#         self.desc.setText(desc)
-
 class Output(QWidget): # Takes the output from MoleculeInput and passes to model scripts
     def __init__(self):
         super().__init__()
@@ -256,9 +135,6 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         palette = QPalette()
         palette.setColor(QPalette.Window, QColor(ColorB))
         self.setPalette(palette)
-
-        self.encoder_path = ""
-        self.decoder_path = ""
 
         # Run button
         self.button = QPushButton("Run", self)
@@ -285,6 +161,7 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         opacity_effect = QGraphicsOpacityEffect()
         opacity_effect.setOpacity(.25)
         img_label.setGraphicsEffect(opacity_effect)
+
         box_layout = QHBoxLayout()
         box_layout.addWidget(img_label)
         box_layout.setAlignment(img_label, Qt.AlignHCenter)
@@ -308,14 +185,6 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         layout.setAlignment(self.button, Qt.AlignHCenter)
         self.setLayout(layout)
 
-    def update_path(self, isEncoder, path):
-        if (isEncoder): 
-            self.encoder_path = path
-            print(path)
-        else:
-            self.decoder_path = path
-            print(path)
-
     
     def run_button(self):
         #Runs specified file stdout is sent to handle_output
@@ -333,10 +202,12 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
         self.left_graph.update_graph()
         self.right_graph.update_graph()
 
-class GraphDisplay(QWidget):
+class GraphDisplay(QWidget): # Displays Graphs generated by the predictor
     def __init__(self, default):
         super().__init__()
         self.label = QLabel()
+
+        # Drop-down selection menu
         self.select = QComboBox()
         self.graph_list = {
             'Predictor A': 'deliverable/data/Predictor_a.png',
@@ -358,13 +229,13 @@ class GraphDisplay(QWidget):
         self.select.setCurrentIndex(default)
         self.select.currentIndexChanged.connect(self.update_graph)
 
-        self.img_ref = 'deliverable/data/MolImage.png'
+        self.img_ref = 'deliverable/data/MolImage.png' # default image
         layout = QVBoxLayout()
         layout.addWidget(self.select)
         layout.addWidget(self.label)
         layout.setAlignment(self.label, Qt.AlignCenter)
         self.setLayout(layout)
-    def update_graph(self):
+    def update_graph(self): # Refreshes displayed graph, changes on run button or selection change
         self.img_ref = self.graph_list[self.select.currentText()]
         self.label.setPixmap(QPixmap(self.img_ref).scaled(300,300,Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
 
