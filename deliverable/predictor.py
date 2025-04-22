@@ -293,7 +293,7 @@ class Predictor(nn.Module):
             a_data = np.empty((2, 0))
             b_data = np.empty((2, 0))
 
-            for inputs, targets in self.data.test:
+            for inputs, targets, _ in self.dataloader.test_loader:
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 # Forward pass
@@ -395,40 +395,41 @@ def random_search_tuning(dataloader, config_file, num_trials=10):
     print(f"Best Hyperparameters: {best_params}")
     return best_params, best_model_weights
 
-# # Example usage:
+# # # Example usage:
 
     
-data = EOS_Dataloader(mode='predict')
-predictor = Predictor(config='base_decoder.yaml', dataloader=data)
+# data = EOS_Dataloader(mode='predict')
+# # predictor = Predictor(config='base_decoder.yaml', dataloader=data)
 
-#predictor.train_predictor()
+# # #predictor.train_predictor()
 
-best_params, best_weights = random_search_tuning(data, 'base_decoder.yaml', num_trials=100)
+# # best_params, best_weights = random_search_tuning(data, 'base_decoder.yaml', num_trials=100)
 
-# Load the best model weights
-predictor = Predictor(config='base_decoder.yaml', dataloader=data)
-predictor.load_state_dict(best_weights)
-predictor.eval()
-
-
-x, y, _= next(iter(data.train_loader))
-# x, y = x[0], y[0]
-x_t, y_t, _ = next(iter(data.test_loader))
-# x_t, y_t = x_t[0], y_t[0]
-x = x.to(predictor.device)
-x_t = x_t.to(predictor.device)
-
-x_p, y_p = predictor.predict(x, y)
-x_t_p, y_t_p = predictor.predict(x_t, y_t)
-
-x_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in x_p.tolist()]
-y_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in y_p.tolist()]
-x_t_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in x_t_p.tolist()]
-y_t_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in y_t_p.tolist()]
+# # Load the best model weights
+# predictor = Predictor(config='base_decoder.yaml', dataloader=data)
+# #predictor.load_state_dict(best_weights)
+# predictor.train_predictor()
+# predictor.eval()
 
 
-print(f'train predictions: {x_p[0]}\ntrain actual {y_p[0]}')
-print(f'test predictions: {x_t_p[0]}\ntest actual {y_t_p[0]}')
+# x, y, _= next(iter(data.train_loader))
+# # x, y = x[0], y[0]
+# x_t, y_t, _ = next(iter(data.test_loader))
+# # x_t, y_t = x_t[0], y_t[0]
+# x = x.to(predictor.device)
+# x_t = x_t.to(predictor.device)
 
-predictor.test_model()
-predictor.save_model()
+# x_p, y_p = predictor.predict(x, y)
+# x_t_p, y_t_p = predictor.predict(x_t, y_t)
+
+# x_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in x_p.tolist()]
+# y_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in y_p.tolist()]
+# x_t_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in x_t_p.tolist()]
+# y_t_p = [f'[{v[0]:.2f}, {v[1]:.6f}]' for v in y_t_p.tolist()]
+
+
+# print(f'train predictions: {x_p[0]}\ntrain actual {y_p[0]}')
+# print(f'test predictions: {x_t_p[0]}\ntest actual {y_t_p[0]}')
+
+# predictor.test_model()
+# predictor.save_model()

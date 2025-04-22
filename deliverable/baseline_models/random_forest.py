@@ -2,11 +2,10 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV
 import numpy as np
 import torch
-from eos_features import EOS_Features_Dataloader
+from baseline_models.eos_features import EOS_Features_Dataloader
 from sklearn.feature_selection import SelectFromModel
 import matplotlib.pyplot as plt
 from joblib import dump, load
-
 class RandomForestModel:
     def __init__(self, data=None, n_estimators=100, max_depth=None, random_state=42):
         self.model = RandomForestRegressor(
@@ -111,7 +110,7 @@ class RandomForestModel:
             x = x.numpy()
         if self.feature_selector is not None:
             x = self.feature_selector.transform(x)
-        return self.model.predict(x)
+        return self.data.t_scaler.inverse_transform(self.model.predict(x))
     
     def save_model(self, file_path="base_model_weights/random_forest.pth"):
         """ Save the model state dictionary to a file """

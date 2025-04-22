@@ -7,10 +7,10 @@ from itertools import product
 import copy
 import matplotlib.pyplot as plt
 
-from eos_dataloader import EOS_Dataloader
+from baseline_models.eos_dataloader import EOS_Dataloader
 
 class CNN(nn.Module):
-    def __init__(self, dataloader, input_dim=256, dropout=[0.1,0.2]):
+    def __init__(self, dataloader=None, input_dim=256, dropout=[0.1,0.2]):
         super(CNN, self).__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # set device
         self.dataloader = dataloader
@@ -131,14 +131,14 @@ class CNN(nn.Module):
         with torch.no_grad():
             if isinstance(x, np.ndarray):
                 x = torch.from_numpy(x).float()
-            return self(x).numpy()
+            return self.dataloader.scaler.inverse_transform(self(x).cpu().numpy())
         
     def save_model(self, file_path="base_model_weights/cnn.pth"):
         """ Save the model state dictionary to a file """
         torch.save(self.state_dict(), file_path)
         print(f"Model saved to {file_path}")
 
-    def test_model(self):
+    def test_model(self, mc=False):
 
         self.eval()
             
@@ -154,6 +154,17 @@ class CNN(nn.Module):
                 targets = targets.to(self.device)
                 # Forward pass
                 preds = self(inputs)
+                if mc:
+                    self.train()
+                    preds = []
+                    a_preds = []
+                    b_preds = []
+                    for i in range(1000):
+                        preds = self(input)
+                        a_preds.append(preds[0][0])
+                        b_preds.append(preds[0][1])
+                        preds.append([a_preds, b_preds])
+                        
                 outputs = self.dataloader.scaler.inverse_transform(preds.cpu().numpy())
                 targets = self.dataloader.scaler.inverse_transform(targets.cpu().numpy())
 

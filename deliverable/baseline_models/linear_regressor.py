@@ -7,7 +7,7 @@ from itertools import product
 import copy
 import matplotlib.pyplot as plt
 
-from eos_features import EOS_Features_Dataloader
+from baseline_models.eos_features import EOS_Features_Dataloader
 
 class LinearRegressor(nn.Module):
     def __init__(self, data=None, input_size=9, output_size=2):
@@ -99,7 +99,7 @@ class LinearRegressor(nn.Module):
         with torch.no_grad():
             if isinstance(x, np.ndarray):
                 x = torch.from_numpy(x).float()
-            return self(x).numpy()
+            return self.data.t_scaler.inverse_transform(self(x).cpu().numpy())
         
     def save_model(self, file_path="base_model_weights/linear.pth"):
         """ Save the model state dictionary to a file """

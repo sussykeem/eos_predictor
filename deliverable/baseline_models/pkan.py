@@ -7,7 +7,7 @@ from itertools import product
 import copy
 import matplotlib.pyplot as plt
 
-from eos_features import EOS_Features_Dataloader
+from baseline_models.eos_features import EOS_Features_Dataloader
 
 class KANLayer(nn.Module):
     def __init__(self, input_dim, output_dim, num_kernels):
@@ -29,7 +29,7 @@ class KANLayer(nn.Module):
         return activation
 
 class PKAN(nn.Module):
-    def __init__(self, data = None, num_kernels=5, dropout=[0.5, 0.3, 0.2], input_size=8, output_size=2):
+    def __init__(self, data=None, num_kernels=5, dropout=[0.5, 0.3, 0.2], input_size=8, output_size=2):
         super(PKAN, self).__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -169,7 +169,7 @@ class PKAN(nn.Module):
             if isinstance(x, np.ndarray):
                 x = torch.from_numpy(x).float()
                 x = x[:, 1:]
-            return self(x).numpy()
+            return self.data.t_scaler.inverse_transform(self(x).cpu().numpy())
         
     def save_model(self, file_path="base_model_weights/pkan.pth"):
         """ Save the model state dictionary to a file """
