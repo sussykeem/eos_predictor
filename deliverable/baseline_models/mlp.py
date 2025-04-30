@@ -109,7 +109,7 @@ class MLP(nn.Module):
         self.eval()
         with torch.no_grad():
             if isinstance(x, np.ndarray):
-                x = torch.from_numpy(x).float()
+                x = torch.from_numpy(x).float().to(self.device)
             return self.data.t_scaler.inverse_transform(self(x).cpu().numpy())
         
     def save_model(self, file_path="base_model_weights/mlp.pth"):

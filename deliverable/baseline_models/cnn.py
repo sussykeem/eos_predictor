@@ -7,7 +7,7 @@ from itertools import product
 import copy
 import matplotlib.pyplot as plt
 
-from baseline_models.eos_dataloader import EOS_Dataloader
+#from baseline_models.eos_dataloader import EOS_Dataloader
 
 class CNN(nn.Module):
     def __init__(self, dataloader=None, input_dim=256, dropout=[0.1,0.2]):
@@ -130,7 +130,7 @@ class CNN(nn.Module):
         self.eval()
         with torch.no_grad():
             if isinstance(x, np.ndarray):
-                x = torch.from_numpy(x).float()
+                x = torch.from_numpy(x).float().to(self.device)
             return self.dataloader.scaler.inverse_transform(self(x).cpu().numpy())
         
     def save_model(self, file_path="base_model_weights/cnn.pth"):

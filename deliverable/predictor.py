@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 import random
+from scipy import stats
+import seaborn as sns
 
 from eos_dataloader import EOS_Dataloader
 from unet import Unet, Encoder
@@ -44,7 +46,7 @@ class KANLayer(nn.Module):
 
 class Predictor(nn.Module):
 
-    def __init__(self, config, dataloader):
+    def __init__(self, config, dataloader=None):
         super(Predictor, self).__init__()
         self.config = self.load_config(config)
         self.dataloader = dataloader
@@ -197,13 +199,13 @@ class Predictor(nn.Module):
 
         return phys_loss
     
-    def predict(self, img, y=None):
+    def predict(self, img):
         scaler = self.dataloader.train_loader.dataset.scaler
         self.eval()
         with torch.no_grad():
             pred = self(img)
             pred = pred.cpu().numpy()
-            return scaler.inverse_transform(pred), scaler.inverse_transform(y) if y is not None else None
+            return scaler.inverse_transform(pred)
 
     def train_predictor(self, epochs=100, patience=20, min_delta=0.001):
         if self.config['sgd']:
@@ -395,11 +397,42 @@ def random_search_tuning(dataloader, config_file, num_trials=10):
     print(f"Best Hyperparameters: {best_params}")
     return best_params, best_model_weights
 
-# # # Example usage:
+# # Example usage:
 
+def plot_distribution(preds, title, model_name):
+
+        mean_pred = np.mean(preds)
+        std_pred = np.std(preds)
+        median_pred = np.median(preds)
+        mode_pred = stats.mode(preds, keepdims=True)[0][0]
+        lower_ci = np.percentile(preds, 2.5)
+        upper_ci = np.percentile(preds, 97.5)
+        dist = [mean_pred, std_pred, median_pred, mode_pred, lower_ci, upper_ci]
+
+        plt.figure(figsize=(8, 5))
+        sns.histplot(preds, bins=50, kde=True, color="blue", alpha=0.6, label="Prediction Distribution")
+
+        # Mark mean, standard deviation, and confidence interval
+        plt.axvline(mean_pred, color='red', linestyle='--', label=f"Mean: {mean_pred:.4f}")
+        plt.axvline(median_pred, color='purple', linestyle='-.', label=f"Median: {median_pred:.4f}")
+        plt.axvline(mode_pred, color='brown', linestyle=':', label=f"Mode: {mode_pred:.4f}")
+        plt.axvline(lower_ci, color='green', linestyle='--', label=f"95% CI Lower: {lower_ci:.4f}")
+        plt.axvline(upper_ci, color='green', linestyle='--', label=f"95% CI Upper: {upper_ci:.4f}")
+
+        # Highlight ±1 std deviation
+        plt.axvline(mean_pred - std_pred, color='orange', linestyle='-.', label=f"-1 Std Dev: {mean_pred - std_pred:.4f}")
+        plt.axvline(mean_pred + std_pred, color='orange', linestyle='-.', label=f"+1 Std Dev: {mean_pred + std_pred:.4f}")
+
+        plt.xlabel("Predicted Value")
+        plt.ylabel("Frequency")
+        plt.title(f"Prediction Distribution - {model_name} - {title}")
+        plt.legend()
+        plt.savefig(f'data/{model_name}_{title}.png')
+        plt.close()
+        return dist
     
 # data = EOS_Dataloader(mode='predict')
-# # predictor = Predictor(config='base_decoder.yaml', dataloader=data)
+# # # predictor = Predictor(config='base_decoder.yaml', dataloader=data)
 
 # # #predictor.train_predictor()
 

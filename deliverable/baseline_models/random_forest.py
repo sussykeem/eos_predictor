@@ -2,10 +2,15 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV
 import numpy as np
 import torch
-from baseline_models.eos_features import EOS_Features_Dataloader
+import os
+import sys
+from eos_features import EOS_Features_Dataloader
 from sklearn.feature_selection import SelectFromModel
 import matplotlib.pyplot as plt
 from joblib import dump, load
+
+os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(sys.prefix, "Library", "plugins", "platforms")
+
 class RandomForestModel:
     def __init__(self, data=None, n_estimators=100, max_depth=None, random_state=42):
         self.model = RandomForestRegressor(

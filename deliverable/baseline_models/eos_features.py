@@ -7,6 +7,9 @@ class EOS_Features_Dataset(Dataset):
     def __init__(self, train=True, in_scale=None, t_scale=None):
         super().__init__()
 
+        self.in_scale = in_scale
+        self.t_scale = t_scale
+
         urls = [
             'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
             'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv'
@@ -19,8 +22,8 @@ class EOS_Features_Dataset(Dataset):
         targets = df[['a', 'b']].values.astype(np.float32)
         
         if in_scale is not None and t_scale is not None:
-            self.inputs = in_scale.fit_transform(inputs) if train else in_scale.transform(inputs)
-            self.targets = t_scale.fit_transform(targets) if train else t_scale.transform(targets)
+            self.inputs = self.in_scale.fit_transform(inputs) if train else self.in_scale.transform(inputs)
+            self.targets = self.t_scale.fit_transform(targets) if train else self.t_scale.transform(targets)
         else:
             self.inputs = inputs.values.astype(np.float32)
             self.targets = targets
@@ -43,11 +46,11 @@ class EOS_Features_Dataloader():
             self.in_scaler = None
             self.t_scaler = None
 
-        train_data = EOS_Features_Dataset(train=True, in_scale=self.in_scaler, t_scale=self.t_scaler)
-        test_data = EOS_Features_Dataset(train=False, in_scale=self.in_scaler, t_scale=self.t_scaler)
+        self.train_data = EOS_Features_Dataset(train=True, in_scale=self.in_scaler, t_scale=self.t_scaler)
+        self.test_data = EOS_Features_Dataset(train=False, in_scale=self.in_scaler, t_scale=self.t_scaler)
 
-        self.train = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-        self.test = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+        self.train = DataLoader(self.train_data, batch_size=batch_size, shuffle=True)
+        self.test = DataLoader(self.test_data, batch_size=batch_size, shuffle=True)
 
 
-features_data = EOS_Features_Dataloader()
+#features_data = EOS_Features_Dataloader()

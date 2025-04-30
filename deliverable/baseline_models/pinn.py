@@ -7,7 +7,7 @@ from itertools import product
 import copy
 import matplotlib.pyplot as plt
 
-from baseline_models.eos_features import EOS_Features_Dataloader
+#from baseline_models.eos_features import EOS_Features_Dataloader
 
 class PINN(nn.Module):
     def __init__(self, data=None, dropout=[0.5, 0.3, 0.2], input_size=8, output_size=2):
@@ -146,7 +146,7 @@ class PINN(nn.Module):
         self.eval()
         with torch.no_grad():
             if isinstance(x, np.ndarray):
-                x = torch.from_numpy(x).float()
+                x = torch.from_numpy(x).float().to(self.device)
                 x = x[:, 1:]
             return self.data.t_scaler.inverse_transform(self(x).cpu().numpy())
         
