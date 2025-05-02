@@ -201,7 +201,6 @@ class Predictor(nn.Module):
     
     def predict(self, img):
         scaler = self.dataloader.train_loader.dataset.scaler
-        self.eval()
         with torch.no_grad():
             pred = self(img)
             pred = pred.cpu().numpy()

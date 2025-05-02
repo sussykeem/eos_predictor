@@ -57,14 +57,14 @@ class EOS_Dataset(Dataset):
 
         if mode == 'reconstruct':
             urls = [
-                'test_smiles.csv',
-                'train_smiles.csv',
+                'dataset/test_smiles.csv',
+                'dataset/train_smiles.csv',
             ]
         elif mode == 'predict':
             urls = [
-                    'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
-                    'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv'
-                ]
+                'eos_dataset/test_data.csv',
+                'eos_dataset/train_data.csv'
+            ]
 
         df = pd.read_csv(urls[train])
         df = df.reset_index(drop=True)

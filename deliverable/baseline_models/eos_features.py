@@ -11,8 +11,8 @@ class EOS_Features_Dataset(Dataset):
         self.t_scale = t_scale
 
         urls = [
-            'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/test_data.csv',
-            'https://raw.githubusercontent.com/sussykeem/eos_predictor/refs/heads/main/eos_dataset/train_data.csv'
+            'eos_dataset/test_data.csv',
+            'eos_dataset/train_data.csv'
         ]
     
         # Use 1 for train, 0 for test

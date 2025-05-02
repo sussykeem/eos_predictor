@@ -67,7 +67,7 @@ class MolPredictor():
             model = Predictor(model_path, self.p_data)
             model.load_state_dict(torch.load(weight_path, map_location=device, weights_only=True), strict=False)
             model.to(device)
-            model.eval()
+            model.train()
         except Exception as e:
             print(f'Failed loading predictor: {e}')
         return model
@@ -94,10 +94,11 @@ class MolPredictor():
             for type in self.types:
                 if type == 'cnn':
                     model = self.load_baseline(type, self.i_data)
-                elif type == 'predictor':
-                    model = self.load_baseline(type, self.p_data)
+                    model.train()
                 else:    
                     model = self.load_baseline(type, self.f_data)
+                    if type != 'random_forest':
+                        model.train()
                 models_init.append(model)
             return models_init
         except Exception as e:
@@ -126,9 +127,10 @@ class MolPredictor():
             print(f'Failed feature extraction: {e}')
         
     def predict(self, model, input):
-        
         with torch.no_grad():
             try:
+                if model.__class__.__name__ != 'RandomForestModel':
+                    model.train()
                 a_preds = []
                 b_preds = []
                 for i in range(100): # num MC prediction
@@ -178,8 +180,8 @@ class MolPredictor():
         input = transform_p(image).unsqueeze(0).to(self.predictor.device)
 
         a_preds, b_preds = self.predict(self.predictor, input)
-        a = self.plot_distribution(a_preds, 'a', model.__class__.__name__)
-        b = self.plot_distribution(b_preds, 'b', model.__class__.__name__)
+        a = self.plot_distribution(a_preds, 'a', self.predictor.__class__.__name__)
+        b = self.plot_distribution(b_preds, 'b', self.predictor.__class__.__name__)
         preds = {'a': a, 'b': b}
         output_data['Predictor'] = preds
         

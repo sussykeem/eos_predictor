@@ -95,7 +95,6 @@ class LinearRegressor(nn.Module):
         return avg_loss
 
     def predict(self, x):
-        self.eval()
         with torch.no_grad():
             if isinstance(x, np.ndarray):
                 x = torch.from_numpy(x).float().to(self.device)
