@@ -222,15 +222,17 @@ class MolPredictor():
 def main(im_path, smi_path):
     predictor = MolPredictor()
     output_data = predictor.run_models(im_path, smi_path)
-    # print("Prediction\n")
-    # sys.stdout.write(f"a:\n")
-    # sys.stdout.write(f"\tmean: {a[0]:.4f}, std: {a[1]:.4f}\n")
-    # sys.stdout.write(f'\tmedian: {a[2]:.4f}, mode: {a[3]:.4f}\n')
-    # sys.stdout.write(f"\tci: ({a[4]:.4f}, {a[5]:.4f})\n")
-    # sys.stdout.write(f"b:\n")
-    # sys.stdout.write(f"\tmean: {b[0]:.4f}, std: {b[1]:.4f}\n")
-    # sys.stdout.write(f'\tmedian: {b[2]:.4f}, mode: {b[3]:.4f}\n')
-    # sys.stdout.write(f"\tci: ({b[4]:.4f}, {b[5]:.4f})\n")
+    sys.stdout.write('Finished\n')
+    dist = ['mean', 'pred', 'median', 'mode', 'lower_ci', 'upper_ci']
+    for key in output_data:
+        sys.stdout.write('---\n')
+        sys.stdout.write(key + ':\n')
+        for type in output_data[key]:
+            sys.stdout.write('  ' + type + ':\n')
+            count = 0
+            for item in output_data[key][type]:
+                sys.stdout.write('    ' + dist[count] + ': ' + str(item) + '\n')
+                count += 1
     return
 
 
