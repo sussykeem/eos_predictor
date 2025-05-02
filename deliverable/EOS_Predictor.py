@@ -287,10 +287,12 @@ class OutputDisplay(QWidget):
             a_item = QLabel()
             a_item.setStyleSheet(self.box_style('black', ColorC))
             self.a.append(a_item)
+            a_item.setAlignment(Qt.AlignCenter)
             a_layout.addWidget(a_item)
 
             b_item = QLabel()
             b_item.setStyleSheet(self.box_style('black', ColorC))
+            b_item.setAlignment(Qt.AlignCenter)
             self.b.append(b_item)
             b_layout.addWidget(b_item)
 

@@ -229,7 +229,7 @@ def main(im_path, smi_path):
         for type in output_data[key]:
             count = 0
             for item in output_data[key][type]:
-                sys.stdout.write(str(item) + ',')
+                sys.stdout.write(format(item, '.4f') + ',')
                 count += 1
             sys.stdout.write(';')
     return

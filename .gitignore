@@ -1,11 +1,7 @@
-GUI/data/MolImage.png
-GUI/data/SMILES.txt
-/mvp/data
 deliverable/models
-unet/cnn.py
 deliverable/__pycache__/*
 deliverable/model_classes/__pycache__/*
+deliverable/data/*
 unet/__pycache__/*
 unet/baseline_models/*.pth
-/mvp/data
-deliverable/data
+unet/cnn.py
