@@ -1,5 +1,6 @@
 deliverable/models
 deliverable/__pycache__/*
+deliverable/baseline_models/__pycache__/*
 deliverable/model_classes/__pycache__/*
 deliverable/data/*
 unet/__pycache__/*
