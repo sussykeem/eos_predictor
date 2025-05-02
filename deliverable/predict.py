@@ -223,16 +223,15 @@ def main(im_path, smi_path):
     predictor = MolPredictor()
     output_data = predictor.run_models(im_path, smi_path)
     sys.stdout.write('Finished\n')
-    dist = ['mean', 'pred', 'median', 'mode', 'lower_ci', 'upper_ci']
+    #dist = ['mean', 'prediction', 'median', 'mode', 'lower_ci', 'upper_ci']
     for key in output_data:
-        sys.stdout.write('---\n')
-        sys.stdout.write(key + ':\n')
+        sys.stdout.write('---')
         for type in output_data[key]:
-            sys.stdout.write('  ' + type + ':\n')
             count = 0
             for item in output_data[key][type]:
-                sys.stdout.write('    ' + dist[count] + ': ' + str(item) + '\n')
+                sys.stdout.write(str(item) + ',')
                 count += 1
+            sys.stdout.write(';')
     return
 
 
