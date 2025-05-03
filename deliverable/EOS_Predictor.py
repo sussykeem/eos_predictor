@@ -201,6 +201,9 @@ class Output(QWidget): # Takes the output from MoleculeInput and passes to model
 
     def script_finished(self): # Placeholder in case I want after completion code to run
         final_display = self.output_text.toPlainText()
+        if "---" not in final_display:
+            self.output_text.clear()
+            return
         self.output_filtered.process_output(final_display)
         self.output_text.clear()
         self.left_graph.update_graph()

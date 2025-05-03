@@ -147,6 +147,8 @@ class MolPredictor():
         image = Image.open(img_path).convert("RGB")
         smile_file = open(smi_path, 'r')
         smile = smile_file.read()
+        if len(smile) == 0:
+            return -1
         mol_features = self.extract_molecular_features(smile)
         mol_features = self.in_scaler.transform(np.array(mol_features, dtype=np.float32).reshape((1,-1)))[0]
 
@@ -189,12 +191,12 @@ class MolPredictor():
     
     def plot_distribution(self, preds, title, model_name):
 
-        mean_pred = np.mean(preds)
-        std_pred = np.std(preds)
-        median_pred = np.median(preds)
-        mode_pred = stats.mode(preds, keepdims=True)[0][0]
-        lower_ci = np.percentile(preds, 2.5)
-        upper_ci = np.percentile(preds, 97.5)
+        mean_pred = np.round(np.mean(preds), decimals=4)
+        std_pred = np.round(np.std(preds), decimals=4)
+        median_pred = np.round(np.median(preds), decimals=4)
+        mode_pred = np.round(stats.mode(preds, keepdims=True)[0][0], decimals=4)
+        lower_ci = np.round(np.percentile(preds, 2.5), decimals=4)
+        upper_ci = np.round(np.percentile(preds, 97.5), decimals=4)
         dist = [mean_pred, std_pred, median_pred, mode_pred, lower_ci, upper_ci]
 
         plt.figure(figsize=(8, 5))
@@ -222,6 +224,9 @@ class MolPredictor():
 def main(im_path, smi_path):
     predictor = MolPredictor()
     output_data = predictor.run_models(im_path, smi_path)
+    if output_data == -1:
+        sys.stdout.write("Empty Molecule")
+        return
     sys.stdout.write('Finished\n')
     #dist = ['mean', 'prediction', 'median', 'mode', 'lower_ci', 'upper_ci']
     for key in output_data:
